@@ -11,7 +11,7 @@ Features as of yet, with the ones mainly coded by Poda marked as such:
 4. Chat logging in console.
 5. Fixed brightness slider and screen flash effects in software renderer.
 6. Fix for widescreen patch causing demo desyncs and out of sync during multiplayer with clients who don't have it.   
-7. Fix for FOV jumping to 90 when a screen is in player's field of view.
+7. Fix for FOV jumping to 90 when TV_CAMERA_SCREEN is in player's field of view.
 8. `-aim#` argument to force AutoAim on or off with `-autonet`.
 9. Armor display for minimal HUD. Could be toggled off by setting `MinHUDArmor` to 0 in kuro.cfg
 
