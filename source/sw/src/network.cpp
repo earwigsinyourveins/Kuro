@@ -1567,6 +1567,7 @@ getpackets(void)
             {
                 char chatLogLine[256];
                 snprintf(chatLogLine, sizeof(chatLogLine), "%s", ds);
+                DemoAutoRecordChatLine(chatLogLine);
                 OSD_Printf("%s\n", chatLogLine);
             }
             break;

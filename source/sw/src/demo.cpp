@@ -55,6 +55,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include <vector>
 #include <ctime>
 #include <chrono>
 #include <cerrno>
@@ -140,6 +141,9 @@ static short DemoAutoLevel = 0;
 static char DemoAutoMapName[160] = "";
 static SWBOOL DemoAutoBots = FALSE;
 static uint8_t DemoAutoBotCount = 0;
+// Chat lines seen by this client during the automatic recording. These are
+// appended to the archive TXT when the DMO and sidecar files are finalized.
+static std::vector<std::string> DemoAutoChatLines;
 
 extern char LevelName[];
 extern char LevelSong[16];
@@ -839,6 +843,7 @@ void DemoAutoRecordStart(void)
 
     DemoAutoBots = (BotMode && FakeMultiNumPlayers > 0);
     DemoAutoBotCount = FakeMultiNumPlayers;
+    DemoAutoChatLines.clear();
     DemoAutoScoreboardCount = 0;
     DemoAutoScoreboardAvailable = FALSE;
 
@@ -859,6 +864,24 @@ void DemoAutoRecordStart(void)
     DemoRecording = TRUE;
     DemoAutoRecording = TRUE;
     OSD_Printf("Automatic demo recording: %s\n", DemoFileName);
+}
+
+void DemoAutoRecordChatLine(const char *chat_line)
+{
+    std::string line;
+    const char *p;
+
+    if (!DemoAutoRecording || chat_line == NULL || chat_line[0] == '\0')
+        return;
+
+    // A report entry must stay on one line even if a future chat source passes
+    // an unexpected carriage return or newline.
+    line.reserve(strlen(chat_line));
+    for (p = chat_line; *p != '\0'; ++p)
+        line += ((*p == '\r' || *p == '\n') ? ' ' : *p);
+
+    if (!line.empty())
+        DemoAutoChatLines.push_back(line);
 }
 
 void DemoAutoRecordCapturePlayer(short player_index, const char *player_name, short kills)
@@ -1136,6 +1159,19 @@ static bool DemoAutoWriteTXT(const char *file_name, const char *demo_base,
                     DemoAutoPlayerNames[i][0] ? DemoAutoPlayerNames[i] : "Unknown");
     }
     fprintf(out, "SUBMIT YOUR DEMO TO WANGBANG DEMO ARCHIVE! https://desomorphine.ru/sw/demos\n");
+
+    // Keep chat history at the end so the original report header and scoreboard
+    // remain unchanged. This is the local client's chronological chat view.
+    fprintf(out, "\nCHAT LOG\n---\n");
+    if (DemoAutoChatLines.empty())
+        fprintf(out, "(NO CHAT MESSAGES RECORDED)\n");
+    else
+    {
+        size_t chat_index;
+        for (chat_index = 0; chat_index < DemoAutoChatLines.size(); ++chat_index)
+            fprintf(out, "%s\n", DemoAutoChatLines[chat_index].c_str());
+    }
+
     if (fclose(out) != 0)
         return false;
     return true;
@@ -1232,7 +1268,7 @@ static void DemoAutoRecordFinish(void)
     }
 
     snprintf(dest_demo, sizeof(dest_demo), "%s/%s.DMO", folder_path, demo_base);
-    snprintf(dest_wb, sizeof(dest_wb), "%s/%s.WB", folder_path, demo_base);
+    snprintf(dest_wb, sizeof(dest_wb), "%s/%s.WANG", folder_path, demo_base);
     snprintf(dest_txt, sizeof(dest_txt), "%s/%s.TXT", folder_path, demo_base);
     copied = DemoAutoCopyFile(DemoFileName, dest_demo);
     if (!copied)

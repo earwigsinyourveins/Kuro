@@ -92,6 +92,7 @@ typedef FILE *DFILE;
 // Takusan-derived automatic multiplayer recording and sidecar archive.
 // DMO data itself remains the classic Shadow Warrior format.
 void DemoAutoRecordStart(void);
+void DemoAutoRecordChatLine(const char *chat_line);
 void DemoAutoRecordCapturePlayer(short player_index, const char *player_name, short kills);
 void DemoAutoRecordScoreboardComplete(short player_count);
 

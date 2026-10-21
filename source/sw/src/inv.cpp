@@ -103,8 +103,217 @@ INVENTORY_DATA InventoryData[MAX_INVENTORY+1] =
 
 void PanelInvTestSuicide(PANEL_SPRITEp psp);
 
+// SWP-style compact weapon HUD. It is used by the former "no HUD" mode
+// (BORDER_NONE), so the original full and minimal HUD layouts remain intact.
+static void DrawSWPWeaponHudNumbers(short x, short y, int number, short shade, short pal)
+{
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%d", number);
+
+    for (const char *ptr = buffer; *ptr; ++ptr)
+    {
+        short pic = short(3613 + (*ptr - '0'));
+        rotatesprite(long(x) << 16, long(y) << 16, 32768, 0, pic, shade, pal,
+                     ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER,
+                     0, 0, xdim - 1, ydim - 1);
+        x += tilesiz[pic].x - 1;
+    }
+}
+
+// Use Kuro/SWP's regular green HUD digits for health, armor, and active ammo.
+// Keep SWP's centered anchors and clipping behavior, but render at native scale
+// so these status values stay prominent. The weapon-roster numbers use their
+// separate small yellow font in DrawSWPWeaponHudNumbers() and are unchanged.
+static void DrawSWPStatusNumber(short centerX, short y, int number)
+{
+    const short statusFontBase = 3636; // PANEL_FONT_G, regular-sized green digits
+    const int statusFontScale = (1 << 16);
+    char buffer[16];
+    int totalWidth = 0;
+    int digitCount = 0;
+    int x;
+
+    snprintf(buffer, sizeof(buffer), "%d", number);
+
+    // Measure the actual rendered width, including the one-pixel inter-digit
+    // spacing used by DisplayMiniBarNumber(), so the value remains centered.
+    for (const char *ptr = buffer; *ptr; ++ptr)
+    {
+        if (*ptr >= '0' && *ptr <= '9')
+        {
+            short pic = short(statusFontBase + (*ptr - '0'));
+            totalWidth += tilesiz[pic].x;
+            ++digitCount;
+        }
+    }
+    if (digitCount > 1)
+        totalWidth += digitCount - 1;
+
+    x = centerX - (totalWidth >> 1);
+    for (const char *ptr = buffer; *ptr; ++ptr)
+    {
+        if (*ptr < '0' || *ptr > '9')
+            continue;
+
+        short pic = short(statusFontBase + (*ptr - '0'));
+        rotatesprite(long(x) << 16, long(y) << 16, statusFontScale, 0, pic, 0, 0,
+                     ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER,
+                     0, 0, xdim - 1, ydim - 1);
+        x += tilesiz[pic].x + 1;
+    }
+}
+
+// Draw SWP's compact inventory count/percentage using the original mini-HUD
+// fragment font (tiles 2930 onward), reduced to the weapon-roster number scale.
+// Center it on the inventory icon and use the same widescreen anchoring flags
+// as that icon; RS_ALIGN_L would shift this text separately in widescreen mode.
+static void DrawSWPInventoryValue(short centerX, short y, const char *text, short pal)
+{
+    const int firstFragmentTile = 2930; // '!' is the first fragment-font glyph.
+    const int fragmentAdvance = 2;
+    const int fragmentScale = 32768;
+    const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
+    int textWidth = 0;
+    int x;
+
+    for (const char *ptr = text; *ptr; ++ptr)
+        textWidth += fragmentAdvance;
+
+    x = centerX - (textWidth / 2);
+    for (const char *ptr = text; *ptr; ++ptr, x += fragmentAdvance)
+    {
+        if (*ptr == ' ')
+            continue;
+        if (*ptr < '!' || *ptr > '}')
+            continue;
+
+        short pic = short(firstFragmentTile + (*ptr - '!'));
+        rotatesprite(long(x) << 16, long(y) << 16, fragmentScale, 0, pic, 0, pal,
+                     spriteFlags, 0, 0, xdim - 1, ydim - 1);
+    }
+}
+
+static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
+{
+    // These tile IDs and the 320x200 layout are from SWP's modern mini HUD.
+    static const int ammoTile[20] =
+        {4050, 1793, 1823, 1799, 1800, 1831, 1842, 1812, 2055, 1825,
+         1819, 1809, 0, 492, 1821, 1798, 2519, 2056, 2057, 0};
+    static const int ammoScale[20] =
+        {4000, 32000, 46200, 38000, 32000, 30000, 30000, 30000, 6500, 24200,
+         32000, 28000, 0, 15000, 44000, 46000, 16000, 6500, 6500, 0};
+    static const int ammoX[20] =
+        {53, 54, 53, 59, 54, 52, 52, 52, 55, 54, 54, 52, 0, 53, 53, 55, 58, 55, 55, 0};
+    static const int ammoY[20] =
+        {184, 180, 182, 180, 179, 180, 180, 180, 178, 181, 181, 181, 0, 184, 182, 180, 178, 178, 178, 0};
+    static const int weaponTile[10] = {1793, 1794, 1797, 1818, 1817, 2223, 1811, 1815, 1825, 0};
+    static const int weaponScale[10] = {22000, 20000, 14000, 18000, 20000, 12000, 18000, 16000, 19000, 0};
+    static const short weaponX[10] = {98, 115, 139, 162, 184, 209, 223, 253, 273, 0};
+    static const short weaponY[10] = {184, 186, 186, 185, 187, 186, 186, 184, 185, 0};
+    static const short ammoNumberX[9] = {102, 122, 144, 168, 190, 212, 234, 256, 279};
+    short shade[10], pal[10];
+    short selectedWeapon;
+    int i, selectedAmmo;
+    const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
+
+    // Health and armor icons; display the active weapon's ammo icon beside them.
+    rotatesprite(4L << 16, 182L << 16, 44000, 0, 1803, 22, 0,
+                 spriteFlags, 0, 0, xdim - 1, ydim - 1);
+    rotatesprite(28L << 16, 183L << 16, 30000, 0, 3030, 16, 0,
+                 spriteFlags, 0, 0, xdim - 1, ydim - 1);
+
+    selectedWeapon = u->WeaponNum;
+    if (selectedWeapon < 0 || selectedWeapon > 13)
+        selectedWeapon = 0;
+
+    // Keep each weapon's retail ammo icon for its standard fire modes.
+    // SWP's alternate shotgun and double-Uzi entries are not reliable
+    // resources in Kuro, so both weapons use their normal ammo icon.
+    selectedAmmo = selectedWeapon;
+    if (selectedWeapon == WPN_STAR && gs.Darts)
+        selectedAmmo = 16;
+    else if (selectedWeapon == WPN_MICRO)
+    {
+        if (pp->WpnRocketType == 1 && pp->WpnRocketHeat)
+            selectedAmmo = 10;
+        else if (pp->WpnRocketType == 2)
+            selectedAmmo = 11;
+    }
+    else if (selectedWeapon == WPN_HOTHEAD && pp->WpnFlameType > 0)
+        selectedAmmo = 16 + pp->WpnFlameType;
+
+    if (selectedAmmo >= 0 && selectedAmmo < 20 && ammoTile[selectedAmmo] != 0)
+        rotatesprite(long(ammoX[selectedAmmo]) << 16,
+                     long(ammoY[selectedAmmo] + 3) << 16,
+                     ammoScale[selectedAmmo], 0, ammoTile[selectedAmmo], 6, 0,
+                     spriteFlags, 0, 0, xdim - 1, ydim - 1);
+
+    // Keep the SWP anchor positions, but use its centered number renderer so
+    // each value aligns with its corresponding health, armor, or ammo icon.
+    DrawSWPStatusNumber(14, 186, u->Health);
+    DrawSWPStatusNumber(38, 186, pp->Armor);
+    if (selectedWeapon != WPN_SWORD && selectedWeapon != WPN_FIST)
+        DrawSWPStatusNumber(62, 186, pp->WpnAmmo[selectedWeapon]);
+
+    // Show all nine weapon icons. Unowned/empty weapons are dimmed; the active
+    // weapon is highlighted. The icon and ammo arrays use the retail SW tiles.
+    for (i = 0; i < 10; ++i)
+    {
+        shade[i] = 30;
+        pal[i] = 11;
+        if (TEST(pp->WpnFlags, BIT(i)) && pp->WpnAmmo[i] > 0)
+        {
+            shade[i] = 16;
+            pal[i] = 13;
+        }
+    }
+    if (selectedWeapon > 0 && selectedWeapon < 10)
+    {
+        shade[selectedWeapon] = 0;
+        pal[selectedWeapon] = 17;
+    }
+
+    for (i = 1; i <= 9; ++i)
+    {
+        if (i == WPN_STAR && gs.Darts)
+            rotatesprite(101L << 16, 184L << 16, 8000, 0, 2519,
+                         shade[i], pal[i], spriteFlags, 0, 0, xdim - 1, ydim - 1);
+        else
+            rotatesprite(long(weaponX[i - 1]) << 16, long(weaponY[i - 1]) << 16,
+                         weaponScale[i - 1], 0, weaponTile[i - 1],
+                         shade[i], pal[i], spriteFlags, 0, 0, xdim - 1, ydim - 1);
+
+        DrawSWPWeaponHudNumbers(ammoNumberX[i - 1], 195, pp->WpnAmmo[i],
+                                selectedWeapon == i ? 0 : 18, 0);
+    }
+
+    // Selected inventory item, when present, occupies the slot before the weapons.
+    // SWP displays a stack count for count-based items and a percentage otherwise.
+    if (pp->InventoryNum >= 0 && pp->InventoryNum < MAX_INVENTORY &&
+        pp->InventoryAmount[pp->InventoryNum] > 0)
+    {
+        INVENTORY_DATAp id = &InventoryData[pp->InventoryNum];
+        char inventoryValue[16];
+
+        if (id->State != NULL)
+            rotatesprite(77L << 16, 184L << 16, 44000, 0, id->State->picndx,
+                         0, 0, spriteFlags, 0, 0, xdim - 1, ydim - 1);
+
+        if (TEST(id->Flags, INVF_COUNT))
+            snprintf(inventoryValue, sizeof(inventoryValue), "%d", pp->InventoryAmount[pp->InventoryNum]);
+        else
+            snprintf(inventoryValue, sizeof(inventoryValue), "%d%%", pp->InventoryPercent[pp->InventoryNum]);
+
+        // Match SWP's slightly imperfect but visually centered inventory-value placement.
+        DrawSWPInventoryValue(82, 195, inventoryValue, 0);
+    }
+}
+
 void UpdateMiniBar(PLAYERp pp)
 {
+    if ((unsigned)pp->PlayerSprite >= MAXSPRITES)
+        return;
+
     USERp u = User[pp->PlayerSprite];
     int x,y;
     INVENTORY_DATAp id;
@@ -123,8 +332,16 @@ void UpdateMiniBar(PLAYERp pp)
 #define MINI_BAR_INVENTORY_BOX_X 64
 #define MINI_BAR_INVENTORY_BOX_Y MINI_BAR_Y
 
-    if (!PanelUpdateMode)
+    if (!PanelUpdateMode || u == NULL)
         return;
+
+    // Reuse the former no-HUD setting for SWP's weapon-icon HUD overlay.
+    // BORDER_MINI_BAR (minimal HUD) and BORDER_BAR (full HUD) are unchanged.
+    if (gs.BorderNum == BORDER_NONE)
+    {
+        UpdateSWPWeaponHud(pp, u);
+        return;
+    }
 
     if (gs.BorderNum != BORDER_MINI_BAR)
         return;

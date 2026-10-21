@@ -5017,6 +5017,7 @@ FunctionKeys(PLAYERp pp)
                 sprintf(ds, "%s: %s", pp->PlayerName, WangBangMacro[fn_key - 1]);
                 char chatLogLine[256];
                 snprintf(chatLogLine, sizeof(chatLogLine), "%s", ds);
+                DemoAutoRecordChatLine(chatLogLine);
                 OSD_Printf("%s\n", chatLogLine);
 
 				TRAVERSE_CONNECT(pnum)
@@ -5349,6 +5350,7 @@ SEND_MESSAGE:
                 // Log the same player-prefixed text sent to other players in the '~' console.
                 char chatLogLine[256];
                 snprintf(chatLogLine, sizeof(chatLogLine), "%s", ds);
+                DemoAutoRecordChatLine(chatLogLine);
                 OSD_Printf("%s\n", chatLogLine);
                 adduserquote(MessageInputString);
                 quotebot += 8;
