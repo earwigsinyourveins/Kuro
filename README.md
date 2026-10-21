@@ -15,7 +15,7 @@ Features as of yet, with the ones mainly coded by Poda marked as such:
 8. `-aim#` argument to force AutoAim on or off with `-autonet`.
 9. Armor display for minimal HUD. Could be toggled off by setting `MinHUDArmor` to 0 in kuro.cfg
 
-Builds on Windows with MinGW32. Address [EDukeWiki](https://wiki.eduke32.com/wiki/Building_EDuke32_on_Windows#MinGW-w64/GCC_with_MSYS2) for a complete set of instructions. Wangulator linker failure is normal.
+Builds on Windows with MinGW32, 64 bit is unsupported for now. Address [EDukeWiki](https://wiki.eduke32.com/wiki/Building_EDuke32_on_Windows#MinGW-w64/GCC_with_MSYS2) for a complete set of instructions. Wangulator linker failure is normal.
 
 For the sake of transparency, my half of this project extensively uses AI code. Poda's half is human-written from top to bottom.
 
