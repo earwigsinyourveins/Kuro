@@ -1,0 +1,2 @@
+VC_REV := 10669
+VC_HASH := ec5824db8
