@@ -173,7 +173,8 @@ static void DrawSWPInventoryValue(short centerX, short y, const char *text, shor
     const int fragmentAdvance = 2;
     const int fragmentScale = 32768;
     const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
-    int textWidth = 0;
+    
+	int textWidth = 0;
     int x;
 
     for (const char *ptr = text; *ptr; ++ptr)
@@ -217,6 +218,7 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
     extern int32_t ShowHeatEnabled;
     extern int32_t ShowNukeEnabled;
     const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
+	const int specialIconFlags = spriteFlags | ROTATE_SPRITE_TRANSLUCENT;
 
     // Health and armor icons; display the active weapon's ammo icon beside them.
     rotatesprite(4L << 16, 182L << 16, 44000, 0, 1803, 22, 0,
@@ -259,7 +261,7 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
         const bool hasNuke = (pp->WpnRocketNuke != 0);
         // Move the pair upward to match the reference HUD, with a small size reduction.
         rotatesprite(2L << 16, 145L << 16, 39000, 0, ICON_NUKE,
-                     hasNuke ? 0 : 30, 0, spriteFlags,
+                     hasNuke ? 0 : 30, 0, specialIconFlags,
                      0, 0, xdim - 1, ydim - 1);
 
         if (hasNuke)
@@ -276,7 +278,7 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
         const int heatCharges = pp->WpnRocketHeat;
         const bool hasHeat = (heatCharges > 0);
         rotatesprite(4L << 16, 163L << 16, 39000, 0, ICON_HEAT_CARD,
-                     hasHeat ? 0 : 30, 0, spriteFlags,
+                     hasHeat ? 0 : 30, 0, specialIconFlags,
                      0, 0, xdim - 1, ydim - 1);
 
         if (hasHeat)

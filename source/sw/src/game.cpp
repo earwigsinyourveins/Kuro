@@ -216,7 +216,7 @@ const GAME_SET gs_defaults =
     32768, // mouse speed
     128, // music vol
     192, // fx vol
-    2, // border
+    0, // border
     0, // brightness
     0, // border tile
     FALSE, // mouse aiming
