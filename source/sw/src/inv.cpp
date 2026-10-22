@@ -214,6 +214,8 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
     short shade[10], pal[10];
     short selectedWeapon;
     int i, selectedAmmo;
+    extern int32_t ShowHeatEnabled;
+    extern int32_t ShowNukeEnabled;
     const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
 
     // Health and armor icons; display the active weapon's ammo icon beside them.
@@ -247,6 +249,45 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
                      long(ammoY[selectedAmmo] + 3) << 16,
                      ammoScale[selectedAmmo], 0, ammoTile[selectedAmmo], 6, 0,
                      spriteFlags, 0, 0, xdim - 1, ydim - 1);
+
+    // Optional special-weapon indicators, positioned beside the bottom-left status row.
+    // Use the existing in-game pickup tiles for each base icon; shade them
+    // while unavailable, and draw enlarged status glyphs near each icon center when owned.
+    // In TILES018.ART, 4624-4628 are the digits 1-5, 4638 is '?', and 4608 is '!'.
+    if (ShowNukeEnabled)
+    {
+        const bool hasNuke = (pp->WpnRocketNuke != 0);
+        // Move the pair upward to match the reference HUD, with a small size reduction.
+        rotatesprite(2L << 16, 145L << 16, 39000, 0, ICON_NUKE,
+                     hasNuke ? 0 : 30, 0, spriteFlags,
+                     0, 0, xdim - 1, ydim - 1);
+
+        if (hasNuke)
+        {
+            const int nukeStatusTile = (pp->WpnRocketType == 2 && pp->NukeInitialized) ? 4608 : 4638;
+            // Sit slightly below the icon's upper edge instead of crowding its top.
+            rotatesprite(13L << 16, 152L << 16, 39000, 0, nukeStatusTile,
+                         0, 0, spriteFlags, 0, 0, xdim - 1, ydim - 1);
+        }
+    }
+
+    if (ShowHeatEnabled)
+    {
+        const int heatCharges = pp->WpnRocketHeat;
+        const bool hasHeat = (heatCharges > 0);
+        rotatesprite(4L << 16, 163L << 16, 39000, 0, ICON_HEAT_CARD,
+                     hasHeat ? 0 : 30, 0, spriteFlags,
+                     0, 0, xdim - 1, ydim - 1);
+
+        if (hasHeat)
+        {
+            // The five regular SW font digit tiles correspond directly to charges 1-5.
+            const int heatNumberTile = 4623 + (heatCharges > 5 ? 5 : heatCharges);
+            // Move the charge digit left toward the heat card's visual center.
+            rotatesprite(12L << 16, 168L << 16, 39000, 0, heatNumberTile,
+                         0, 0, spriteFlags, 0, 0, xdim - 1, ydim - 1);
+        }
+    }
 
     // Keep the SWP anchor positions, but use its centered number renderer so
     // each value aligns with its corresponding health, armor, or ammo icon.

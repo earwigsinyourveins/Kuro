@@ -67,6 +67,10 @@ int32_t MinHUDArmorEnabled = 1;
 // Kuro toggle: show demo playback tic counters; configured in voidsw.cfg [Kuro].
 int32_t DemoTimeEnabled = 1;
 
+// Kuro compact-HUD toggles: show heat-seeker card and nuke indicators.
+int32_t ShowHeatEnabled = 1;
+int32_t ShowNukeEnabled = 1;
+
 //
 // Comm variables
 //
@@ -700,6 +704,8 @@ int32_t CONFIG_ReadSetup(void)
     MapCopyEnabled = 1;
     MinHUDArmorEnabled = 1;
     DemoTimeEnabled = 1;
+    ShowHeatEnabled = 1;
+    ShowNukeEnabled = 1;
     char waveformtrackname[MAXWAVEFORMTRACKLENGTH] = {0};
 
     CONTROL_ClearAssignments();
@@ -718,6 +724,12 @@ int32_t CONFIG_ReadSetup(void)
 
     SCRIPT_GetNumber(scripthandle, "Kuro", "DemoTime", &DemoTimeEnabled);
     DemoTimeEnabled = DemoTimeEnabled ? 1 : 0;
+
+    SCRIPT_GetNumber(scripthandle, "Kuro", "ShowHeat", &ShowHeatEnabled);
+    ShowHeatEnabled = ShowHeatEnabled ? 1 : 0;
+
+    SCRIPT_GetNumber(scripthandle, "Kuro", "ShowNuke", &ShowNukeEnabled);
+    ShowNukeEnabled = ShowNukeEnabled ? 1 : 0;
 
     SCRIPT_GetNumber(scripthandle, "Screen Setup", "ScreenMode",&ud_setup.ScreenMode);
     SCRIPT_GetNumber(scripthandle, "Screen Setup", "ScreenWidth",&ud_setup.ScreenWidth);
@@ -820,6 +832,8 @@ void CONFIG_WriteSetup(void)
     SCRIPT_PutNumber(scripthandle, "Kuro", "MapCopy", MapCopyEnabled ? 1 : 0, FALSE, FALSE);
     SCRIPT_PutNumber(scripthandle, "Kuro", "MinHUDArmor", MinHUDArmorEnabled ? 1 : 0, FALSE, FALSE);
     SCRIPT_PutNumber(scripthandle, "Kuro", "DemoTime", DemoTimeEnabled ? 1 : 0, FALSE, FALSE);
+    SCRIPT_PutNumber(scripthandle, "Kuro", "ShowHeat", ShowHeatEnabled ? 1 : 0, FALSE, FALSE);
+    SCRIPT_PutNumber(scripthandle, "Kuro", "ShowNuke", ShowNukeEnabled ? 1 : 0, FALSE, FALSE);
 
     SCRIPT_PutNumber(scripthandle, "Screen Setup", "ScreenWidth", ud_setup.ScreenWidth,FALSE,FALSE);
     SCRIPT_PutNumber(scripthandle, "Screen Setup", "ScreenHeight",ud_setup.ScreenHeight,FALSE,FALSE);

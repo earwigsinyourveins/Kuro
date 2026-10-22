@@ -7884,9 +7884,10 @@ void MultiPlayLimits(void)
             {
 				Done = TRUE;
 
-				//PODA:  TURN OFF DEMO AND GO TO SCORE SCREEN WHEN FRAG LIMIT IS HIT.
-
-				CON_Quit(true);
+                // End the round normally so the scoreboard is shown and the game can
+                // continue through its regular level-transition path. CON_Quit(true)
+                // sets QuitFlag and broadcasts SK_QUIT_GAME, which closes every
+                // player's application after the scoreboard instead of ending the round.
             }
         }
     }

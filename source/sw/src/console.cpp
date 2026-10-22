@@ -1049,7 +1049,7 @@ void CON_ReallyQuit(void)
 
 }
 
-//PODA:  REGULAR QUITS, BUT WHEN FRAG LIMIT IS REACHED, QUITS THE GAME INSTEAD OF GOING INTO THE NEXT LEVEL.
+// Multiplayer quit helper. The optional argument also requests a full application quit.
 
 void CON_Quit(bool quit)
 {
