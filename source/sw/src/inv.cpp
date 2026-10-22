@@ -44,7 +44,7 @@ extern short NormalVisibility;
 
 // indexed by gs.BorderNum   130,172
 short InventoryBarXpos[] = {110, 110, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80};
-short InventoryBarYpos[] = {172, 172, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130};
+short InventoryBarYpos[] = {162, 172, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130, 130};
 
 void PlayerUpdateInventory(PLAYERp pp, short InventoryNum);
 void SpawnInventoryBar(PLAYERp pp);
