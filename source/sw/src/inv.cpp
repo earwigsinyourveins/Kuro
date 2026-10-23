@@ -35,6 +35,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include "text.h"
 #include "colormap.h"
 #include "player.h"
+#include "network.h"
 
 //#define SAVE_EXTERN
 //#include "_save.h"
@@ -194,6 +195,112 @@ static void DrawSWPInventoryValue(short centerX, short y, const char *text, shor
     }
 }
 
+// Draw CTF capture scores with Kuro's regular HUD digit tiles instead of the
+// mapper-positioned counter artwork. The map sprites remain the source of truth:
+// their tile offset from 1900 is the current score (DoFlagScore increments it).
+static int CompactCTFScoreWidth(int score, int scale)
+{
+    char buffer[16];
+    int width = 0;
+    int digits = 0;
+
+    snprintf(buffer, sizeof(buffer), "%d", score);
+    for (const char *ptr = buffer; *ptr; ++ptr)
+    {
+        const short pic = short(3732 + (*ptr - '0')); // Large main-menu font digit tiles (3732-3741).
+        int digitWidth = (tilesiz[pic].x * scale) >> 16;
+        if (digitWidth < 1)
+            digitWidth = 1;
+        width += digitWidth;
+        ++digits;
+    }
+
+    if (digits > 1)
+        width += digits - 1;
+    return width;
+}
+
+static void DrawCompactCTFScoreNumber(int x, int y, int score, int scale, short pal)
+{
+    char buffer[16];
+    const int flags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
+
+    snprintf(buffer, sizeof(buffer), "%d", score);
+    for (const char *ptr = buffer; *ptr; ++ptr)
+    {
+        const short pic = short(3732 + (*ptr - '0')); // Large main-menu font digits; player palettes tint the red/blue scores.
+        int digitWidth = (tilesiz[pic].x * scale) >> 16;
+        if (digitWidth < 1)
+            digitWidth = 1;
+
+        rotatesprite(x << 16, y << 16, scale, 0, pic, 0, pal,
+                     flags, 0, 0, xdim - 1, ydim - 1);
+        x += digitWidth;
+        if (ptr[1])
+            ++x; // Keep the same small inter-digit spacing as the regular HUD font.
+    }
+}
+
+// Show live red/blue CTF scores in the compact HUD. Detect the map's real
+// wall-aligned counter sprites, but use only their tile-derived score value;
+// drawing large main-menu font digits avoids inheriting mappers' inconsistent
+// counter-art alignment. The user's counter scale adjustment (57344) is kept.
+static void DrawCompactCTFCounters(void)
+{
+    if (gNet.MultiGameType != MULTI_GAME_COMMBAT || !gNet.TeamPlay)
+        return;
+
+    int redTile = -1;
+    int blueTile = -1;
+    int spriteNum;
+
+    for (spriteNum = headspritestat[STAT_DEFAULT]; spriteNum >= 0;
+         spriteNum = nextspritestat[spriteNum])
+    {
+        const SPRITEp sp = &sprite[spriteNum];
+
+        // TRACK_SPRITE also uses this tile range; wall alignment identifies
+        // the actual CTF capture counters instead of ordinary track markers.
+        if (sp->picnum < 1900 || sp->picnum > 1999 ||
+            !TEST(sp->cstat, CSTAT_SPRITE_ALIGNMENT_WALL))
+            continue;
+
+        if (sp->pal == PALETTE_PLAYER3 && redTile < 0)
+            redTile = sp->picnum;
+        else if (sp->pal == PALETTE_PLAYER7 && blueTile < 0)
+            blueTile = sp->picnum;
+
+        if (redTile >= 0 && blueTile >= 0)
+            break;
+    }
+
+    if (redTile < 0 && blueTile < 0)
+        return;
+
+    // The counter sprite's tile number is 1900 + score. DoFlagScore() advances
+    // every counter of the scoring palette, so these values stay synchronized.
+    const int redScore = redTile >= 0 ? redTile - 1900 : -1;
+    const int blueScore = blueTile >= 0 ? blueTile - 1900 : -1;
+    static const int counterScale = 57344; // User-adjusted scale; preserve it.
+    static const int counterLeftMargin = 4;
+    static const int counterGap = 8;
+    const int digitHeight = (tilesiz[3732].y * counterScale) >> 16;
+    const int y = (200 - digitHeight) / 2;
+    const int redWidth = redScore >= 0 ? CompactCTFScoreWidth(redScore, counterScale) : 0;
+    const int blueWidth = blueScore >= 0 ? CompactCTFScoreWidth(blueScore, counterScale) : 0;
+    // Place the pair together at the left side, with the red score first.
+    int x = counterLeftMargin;
+    if (redScore >= 0)
+    {
+        // Player palettes 19/23 only remap player-colour ranges and do not tint the
+        // main-menu font's digit pixels. Use the full-image lighting palettes instead.
+        DrawCompactCTFScoreNumber(x, y, redScore, counterScale, PALETTE_RED_LIGHTING);
+        x += redWidth + counterGap;
+    }
+    if (blueScore >= 0)
+        DrawCompactCTFScoreNumber(x, y, blueScore, counterScale, PALETTE_BLUE_LIGHTING);
+}
+
 static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
 {
     // These tile IDs and the 320x200 layout are from SWP's modern mini HUD.
@@ -219,6 +326,8 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
     extern int32_t ShowNukeEnabled;
     const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
 	const int specialIconFlags = spriteFlags | ROTATE_SPRITE_TRANSLUCENT;
+
+    DrawCompactCTFCounters();
 
     // Health and armor icons; display the active weapon's ammo icon beside them.
     rotatesprite(4L << 16, 182L << 16, 44000, 0, 1803, 22, 0,
