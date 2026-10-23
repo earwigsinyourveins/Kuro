@@ -1680,6 +1680,9 @@ getpackets(void)
 
             // palette
             pp->TeamColor = p->Color;
+            // Update autorecord metadata after the authoritative remote color arrives.
+            // The initial sidecar snapshot can happen before this packet is processed.
+            DemoAutoRecordUpdatePlayerColor(otherconnectindex, pp->TeamColor);
             pp->SpriteP->pal = PALETTE_PLAYER0 + pp->TeamColor;
             User[pp->SpriteP - sprite]->spal = pp->SpriteP->pal;
 

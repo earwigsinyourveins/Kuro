@@ -866,6 +866,19 @@ void DemoAutoRecordStart(void)
     OSD_Printf("Automatic demo recording: %s\n", DemoFileName);
 }
 
+// Keep autorecord sidecar colors synchronized with the authoritative network
+// PLAYER_OPTIONS packet. The recording starts before the post-options ready
+// barrier, so remote players can still have their zero-initialized color here.
+// This only updates WANG sidecar metadata; it does not affect gameplay state.
+void DemoAutoRecordUpdatePlayerColor(short player_index, unsigned char color)
+{
+    if (!DemoAutoRecording || player_index < 0 ||
+        player_index >= DemoAutoPlayerCount || player_index >= MAX_SW_PLAYERS_REG)
+        return;
+
+    DemoAutoPlayerColors[player_index] = (char)color;
+}
+
 void DemoAutoRecordChatLine(const char *chat_line)
 {
     std::string line;
