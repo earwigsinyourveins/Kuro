@@ -1186,7 +1186,7 @@ static bool DemoAutoWriteTXT(const char *file_name, const char *demo_base,
     // remain unchanged. This is the local client's chronological chat view.
     fprintf(out, "\nCHAT LOG\n---\n");
     if (DemoAutoChatLines.empty())
-        fprintf(out, "(NO CHAT MESSAGES RECORDED)\n");
+        fprintf(out, "HMMM... NO POWER\n");
     else
     {
         size_t chat_index;

@@ -10,6 +10,7 @@ Features as of yet, with the ones mainly coded by Poda marked as such:
 3. Automatic demo recording for multiplayer games, regardless if it was started with `-autonet` on initial launch or in-game menu, including composure of .WANG files with recorded names and colors. Kills are stored as well in a respective .txt report and demo folder titles.
 4. Ported ProAsm's compact HUD from SWP, and added heat card/nuke display which can be toggled off by flipping `ShowHeat` and `ShowNuke` in kuro.cfg. Thanks to HellFire aka reu for the suggestion.
 5. Chat logging in console and demo-relative .txt report.
+6. CTF capture counter display during a team game and if counter sprites are set on the map, and flag capture limit via `-flags###` argument. 
 6. Fixed brightness slider and screen flash effects in software renderer.
 7. Fix for widescreen patch causing demo desyncs and out of sync during multiplayer with clients who don't have it.   
 8. Fix for FOV jumping to 90 when TV_CAMERA_SCREEN is in player's field of view.
