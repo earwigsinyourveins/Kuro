@@ -2233,6 +2233,31 @@ void FAF_DrawRooms(int x, int y, int z, fix16_t q16ang, fix16_t q16horiz, short 
 
 short ScreenSavePic = FALSE;
 
+// Render-only capture-limit result. This deliberately does not update gameplay
+// state; the same deterministic score event sets FlagCaptureWinner on each peer.
+static void DrawFlagCaptureWinnerMessage(void)
+{
+    if (FlagCaptureWinner == 0)
+        return;
+
+    const char *teamName = (FlagCaptureWinner == 1) ? "Red Team" : "Blue Team";
+    const char *messageTail = " won the game!";
+    short teamWidth = 0, teamHeight = 0;
+    short tailWidth = 0, tailHeight = 0;
+
+    MNU_MeasureString(teamName, &teamWidth, &teamHeight);
+    MNU_MeasureString(messageTail, &tailWidth, &tailHeight);
+
+    const short messageWidth = teamWidth + tailWidth;
+    const short messageHeight = (teamHeight > tailHeight) ? teamHeight : tailHeight;
+    const short x = (320 - messageWidth) / 2;
+    const short y = (200 - messageHeight) / 2;
+    const short teamPalette = (FlagCaptureWinner == 1) ? PALETTE_RED_LIGHTING : PALETTE_BLUE_LIGHTING;
+
+    MNU_DrawString(x, y, teamName, 0, teamPalette);
+    MNU_DrawString(x + teamWidth, y, messageTail, 0, 16);
+}
+
 void
 drawscreen(PLAYERp pp)
 {
@@ -2563,6 +2588,9 @@ drawscreen(PLAYERp pp)
         MNU_DrawMenu();
     else
         SecretInfo(pp);
+
+    // Keep the winner banner above the HUD and other game overlays.
+    DrawFlagCaptureWinnerMessage();
 
     videoNextPage();
 

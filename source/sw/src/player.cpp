@@ -7921,6 +7921,7 @@ void MultiPlayLimits(void)
 void PauseMultiPlay(void)
 {
     static SWBOOL SavePrediction;
+    static SWBOOL FlagCapturePauseApplied = FALSE;
     PLAYERp pp;
     short pnum,p;
 
@@ -7943,8 +7944,11 @@ void PauseMultiPlay(void)
 #define MSG_GAME_PAUSED "Game Paused"
                     MNU_MeasureString(MSG_GAME_PAUSED, &w, &h);
 
-                    TRAVERSE_CONNECT(p)
-                    PutStringTimer(Player + p, TEXT_TEST_COL(w), 100, MSG_GAME_PAUSED, 999);
+                    if (FlagCaptureWinner == 0)
+                    {
+                        TRAVERSE_CONNECT(p)
+                        PutStringTimer(Player + p, TEXT_TEST_COL(w), 100, MSG_GAME_PAUSED, 999);
+                    }
 
                     SavePrediction = PredictionOn;
                     PredictionOn = FALSE;
@@ -7962,6 +7966,25 @@ void PauseMultiPlay(void)
         else
         {
             FLAG_KEY_RESET(pp, SK_PAUSE);
+        }
+    }
+
+    // The capture event is deterministic and is seen by each connected client.
+    // Apply the regular multiplayer pause state once, including prediction/music
+    // handling, without synthesizing or modifying any gameplay sync input.
+    if (FlagCaptureWinner == 0)
+    {
+        FlagCapturePauseApplied = FALSE;
+    }
+    else if (!FlagCapturePauseApplied)
+    {
+        FlagCapturePauseApplied = TRUE;
+        if (!GamePaused)
+        {
+            GamePaused = TRUE;
+            SavePrediction = PredictionOn;
+            PredictionOn = FALSE;
+            MUSIC_Pause();
         }
     }
 }

@@ -245,10 +245,42 @@ static void DrawCompactCTFScoreNumber(int x, int y, int score, int scale, short 
 // wall-aligned counter sprites, but use only their tile-derived score value;
 // drawing large main-menu font digits avoids inheriting mappers' inconsistent
 // counter-art alignment. The user's counter scale adjustment (57344) is kept.
-static void DrawCompactCTFCounters(void)
+// Return the same map-derived capture scores used by the compact HUD.
+// Scores are -1 when that team's counter is not present on this map. The
+// cached post-win values are shared with autorecord reports so the report
+// matches the frozen HUD display without touching capture gameplay.
+SWBOOL GetCompactCTFCaptureScores(int *redScoreOut, int *blueScoreOut)
 {
+    static int frozenWinner = 0;
+    static int frozenRedScore = -1;
+    static int frozenBlueScore = -1;
+
+    if (redScoreOut == NULL || blueScoreOut == NULL)
+        return FALSE;
+
+    *redScoreOut = -1;
+    *blueScoreOut = -1;
+
+    // A zero winner means the next round/map has reset the capture-limit state.
+    if (FlagCaptureWinner == 0)
+    {
+        frozenWinner = 0;
+        frozenRedScore = -1;
+        frozenBlueScore = -1;
+    }
+
+    // Match the compact HUD's eligibility conditions: Team Deathmatch, team
+    // play, and at least one real wall-aligned capture-counter sprite.
     if (gNet.MultiGameType != MULTI_GAME_COMMBAT || !gNet.TeamPlay)
-        return;
+        return FALSE;
+
+    // Once frozen for this winner, don't read the live map counters again.
+    if (FlagCaptureWinner != 0 && frozenWinner == FlagCaptureWinner)
+    {
+        *redScoreOut = frozenRedScore;
+        *blueScoreOut = frozenBlueScore;
+        return (frozenRedScore >= 0 || frozenBlueScore >= 0) ? TRUE : FALSE;
+    }
 
     int redTile = -1;
     int blueTile = -1;
@@ -260,7 +292,7 @@ static void DrawCompactCTFCounters(void)
         const SPRITEp sp = &sprite[spriteNum];
 
         // TRACK_SPRITE also uses this tile range; wall alignment identifies
-        // the actual CTF capture counters instead of ordinary track markers.
+        // actual CTF capture counters instead of ordinary track markers.
         if (sp->picnum < 1900 || sp->picnum > 1999 ||
             !TEST(sp->cstat, CSTAT_SPRITE_ALIGNMENT_WALL))
             continue;
@@ -275,25 +307,40 @@ static void DrawCompactCTFCounters(void)
     }
 
     if (redTile < 0 && blueTile < 0)
+        return FALSE;
+
+    // DoFlagScore() advances the sprite tile from 1900, matching the HUD.
+    *redScoreOut = redTile >= 0 ? redTile - 1900 : -1;
+    *blueScoreOut = blueTile >= 0 ? blueTile - 1900 : -1;
+
+    // Capture the displayed values once the winner has been declared. The map
+    // sprites continue updating normally; only this visual score snapshot freezes.
+    if (FlagCaptureWinner != 0)
+    {
+        frozenWinner = FlagCaptureWinner;
+        frozenRedScore = *redScoreOut;
+        frozenBlueScore = *blueScoreOut;
+    }
+
+    return TRUE;
+}
+
+static void DrawCTFCounters(void)
+{
+    int redScore, blueScore;
+    if (!GetCompactCTFCaptureScores(&redScore, &blueScore))
         return;
 
-    // The counter sprite's tile number is 1900 + score. DoFlagScore() advances
-    // every counter of the scoring palette, so these values stay synchronized.
-    const int redScore = redTile >= 0 ? redTile - 1900 : -1;
-    const int blueScore = blueTile >= 0 ? blueTile - 1900 : -1;
     static const int counterScale = 57344; // User-adjusted scale; preserve it.
     static const int counterLeftMargin = 4;
     static const int counterGap = 8;
     const int digitHeight = (tilesiz[3732].y * counterScale) >> 16;
     const int y = (200 - digitHeight) / 2;
     const int redWidth = redScore >= 0 ? CompactCTFScoreWidth(redScore, counterScale) : 0;
-    const int blueWidth = blueScore >= 0 ? CompactCTFScoreWidth(blueScore, counterScale) : 0;
     // Place the pair together at the left side, with the red score first.
     int x = counterLeftMargin;
     if (redScore >= 0)
     {
-        // Player palettes 19/23 only remap player-colour ranges and do not tint the
-        // main-menu font's digit pixels. Use the full-image lighting palettes instead.
         DrawCompactCTFScoreNumber(x, y, redScore, counterScale, PALETTE_RED_LIGHTING);
         x += redWidth + counterGap;
     }
@@ -327,7 +374,7 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
     const int spriteFlags = ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER;
 	const int specialIconFlags = spriteFlags | ROTATE_SPRITE_TRANSLUCENT;
 
-    DrawCompactCTFCounters();
+    // CTF counters are drawn by UpdateMiniBar for every HUD mode.
 
     // Health and armor icons; display the active weapon's ammo icon beside them.
     rotatesprite(4L << 16, 182L << 16, 44000, 0, 1803, 22, 0,
@@ -486,6 +533,11 @@ void UpdateMiniBar(PLAYERp pp)
 
     if (!PanelUpdateMode || u == NULL)
         return;
+
+    // Draw CTF counters independently of the selected HUD style. This is a
+    // render-only overlay; score detection and the post-win visual freeze are
+    // shared with the autorecord report and do not alter gameplay.
+    DrawCTFCounters();
 
     // Reuse the former no-HUD setting for SWP's weapon-icon HUD overlay.
     // BORDER_MINI_BAR (minimal HUD) and BORDER_BAR (full HUD) are unchanged.

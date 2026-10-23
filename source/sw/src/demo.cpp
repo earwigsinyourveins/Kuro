@@ -1158,13 +1158,35 @@ static bool DemoAutoWriteTXT(const char *file_name, const char *demo_base,
             fprintf(out, "PLAYER %d: %s | KILLS: UNAVAILABLE\n", i + 1,
                     DemoAutoPlayerNames[i][0] ? DemoAutoPlayerNames[i] : "Unknown");
     }
+    // Include CTF scores only when the same game-mode/map-counter conditions
+    // used by the compact HUD are satisfied. This is report-only and does not
+    // alter match scoring, networking, or the recorded demo.
+    {
+        int red_captures = -1;
+        int blue_captures = -1;
+        if (GetCompactCTFCaptureScores(&red_captures, &blue_captures))
+        {
+            fprintf(out, "\nFLAG CAPTURES\n---\n");
+            if (red_captures >= 0)
+                fprintf(out, "RED: %d\n", red_captures);
+            else
+                fprintf(out, "RED: UNAVAILABLE\n");
+            if (blue_captures >= 0)
+                fprintf(out, "BLUE: %d\n", blue_captures);
+            else
+                fprintf(out, "BLUE: UNAVAILABLE\n");
+            if (FlagCaptureLimit > 0)
+                fprintf(out, "CAPTURE LIMIT: %d\n", FlagCaptureLimit);
+		}
+    }
+
     fprintf(out, "SUBMIT YOUR DEMO TO WANGBANG DEMO ARCHIVE! https://desomorphine.ru/sw/demos\n");
 
     // Keep chat history at the end so the original report header and scoreboard
     // remain unchanged. This is the local client's chronological chat view.
     fprintf(out, "\nCHAT LOG\n---\n");
     if (DemoAutoChatLines.empty())
-        fprintf(out, "HMMM... NO POWER\n");
+        fprintf(out, "(NO CHAT MESSAGES RECORDED)\n");
     else
     {
         size_t chat_index;
@@ -1177,13 +1199,179 @@ static bool DemoAutoWriteTXT(const char *file_name, const char *demo_base,
     return true;
 }
 
+// Write a safe double-click helper next to each autorecorded demo. Literal
+// percent signs in Windows filenames must be doubled in batch source; delayed
+// expansion is disabled in the generated script so exclamation marks survive.
+static void DemoAutoWriteBatchLiteral(FILE *out, const char *value)
+{
+    const unsigned char *p = (const unsigned char *)(value ? value : "");
+    while (*p)
+    {
+        if (*p == '%')
+            fputc('%', out);
+        fputc(*p++, out);
+    }
+}
+
+
+static bool DemoAutoWritePlayDemoBatch(const char *file_name, const char *demo_base,
+                                       const char *copied_map_name)
+{
+    FILE *out;
+
+    if (file_name == NULL || demo_base == NULL || demo_base[0] == '\0')
+        return false;
+
+    out = fopen(file_name, "wt");
+    if (out == NULL)
+        return false;
+
+    fprintf(out, "@echo off\r\n");
+    fprintf(out, "setlocal DisableDelayedExpansion\r\n");
+    fprintf(out, "rem Copy demo files; reuse existing byte-identical destination files.\r\n");
+    fprintf(out, "set \"DEMODIR=%%~dp0\"\r\n");
+    fprintf(out, "for %%%%I in (\"%%~dp0..\\..\") do set \"KURODIR=%%%%~fI\"\r\n");
+    fprintf(out, "if not exist \"%%KURODIR%%\\kuro.exe\" goto no_kuro\r\n");
+
+    fprintf(out, "set \"DEMOBASE=");
+    DemoAutoWriteBatchLiteral(out, demo_base);
+    fprintf(out, "\"\r\n");
+
+    fprintf(out, "set \"MAPFILE=");
+    if (copied_map_name != NULL && copied_map_name[0] != '\0')
+        DemoAutoWriteBatchLiteral(out, copied_map_name);
+    fprintf(out, "\"\r\n");
+
+    fprintf(out, "if not exist \"%%DEMODIR%%%%DEMOBASE%%.DMO\" goto no_demo\r\n");
+
+    fprintf(out, "set \"COPY_DMO=1\"\r\n");
+    fprintf(out, "set \"COPY_WANG=0\"\r\n");
+    fprintf(out, "set \"COPY_WB=0\"\r\n");
+    fprintf(out, "set \"COPY_MAP=0\"\r\n");
+
+    fprintf(out, "if exist \"%%DEMODIR%%%%DEMOBASE%%.WANG\" set \"COPY_WANG=1\"\r\n");
+    fprintf(out, "if exist \"%%DEMODIR%%%%DEMOBASE%%.WB\" set \"COPY_WB=1\"\r\n");
+    fprintf(out, "if defined MAPFILE if not exist \"%%DEMODIR%%%%MAPFILE%%\" goto no_map\r\n");
+    fprintf(out, "if defined MAPFILE set \"COPY_MAP=1\"\r\n");
+
+    // Preflight every required file before copying anything.
+    // Reuse existing destinations only when their contents match exactly.
+    fprintf(out, "\r\nrem Check the DMO destination.\r\n");
+    fprintf(out, "if not exist \"%%KURODIR%%\\%%DEMOBASE%%.DMO\" goto dmo_checked\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.DMO\" \"%%KURODIR%%\\%%DEMOBASE%%.DMO\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto collision\r\n");
+    fprintf(out, "set \"COPY_DMO=0\"\r\n");
+    fprintf(out, ":dmo_checked\r\n");
+
+    fprintf(out, "\r\nrem Check the WANG destination, if a WANG file is present.\r\n");
+    fprintf(out, "if not \"%%COPY_WANG%%\"==\"1\" goto wang_checked\r\n");
+    fprintf(out, "if not exist \"%%KURODIR%%\\%%DEMOBASE%%.WANG\" goto wang_checked\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.WANG\" \"%%KURODIR%%\\%%DEMOBASE%%.WANG\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto collision\r\n");
+    fprintf(out, "set \"COPY_WANG=0\"\r\n");
+    fprintf(out, ":wang_checked\r\n");
+
+    fprintf(out, "\r\nrem Check the WB destination, if a WB file is present.\r\n");
+    fprintf(out, "if not \"%%COPY_WB%%\"==\"1\" goto wb_checked\r\n");
+    fprintf(out, "if not exist \"%%KURODIR%%\\%%DEMOBASE%%.WB\" goto wb_checked\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.WB\" \"%%KURODIR%%\\%%DEMOBASE%%.WB\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto collision\r\n");
+    fprintf(out, "set \"COPY_WB=0\"\r\n");
+    fprintf(out, ":wb_checked\r\n");
+
+    fprintf(out, "\r\nrem Reuse an installed map only when byte-identical.\r\n");
+    fprintf(out, "if not \"%%COPY_MAP%%\"==\"1\" goto map_checked\r\n");
+    fprintf(out, "if not exist \"%%KURODIR%%\\%%MAPFILE%%\" goto map_checked\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%MAPFILE%%\" \"%%KURODIR%%\\%%MAPFILE%%\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto map_conflict\r\n");
+    fprintf(out, "set \"COPY_MAP=0\"\r\n");
+    fprintf(out, ":map_checked\r\n");
+
+    fprintf(out, "\r\nrem All destinations have been checked. Copy only missing files.\r\n");
+
+    fprintf(out, "if not \"%%COPY_WANG%%\"==\"1\" goto skip_wang_copy\r\n");
+    fprintf(out, "if exist \"%%KURODIR%%\\%%DEMOBASE%%.WANG\" goto late_collision\r\n");
+    fprintf(out, "copy /B /-Y \"%%DEMODIR%%%%DEMOBASE%%.WANG\" \"%%KURODIR%%\\%%DEMOBASE%%.WANG\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.WANG\" \"%%KURODIR%%\\%%DEMOBASE%%.WANG\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, ":skip_wang_copy\r\n");
+
+    fprintf(out, "if not \"%%COPY_WB%%\"==\"1\" goto skip_wb_copy\r\n");
+    fprintf(out, "if exist \"%%KURODIR%%\\%%DEMOBASE%%.WB\" goto late_collision\r\n");
+    fprintf(out, "copy /B /-Y \"%%DEMODIR%%%%DEMOBASE%%.WB\" \"%%KURODIR%%\\%%DEMOBASE%%.WB\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.WB\" \"%%KURODIR%%\\%%DEMOBASE%%.WB\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, ":skip_wb_copy\r\n");
+
+    fprintf(out, "if not \"%%COPY_MAP%%\"==\"1\" goto skip_map_copy\r\n");
+    fprintf(out, "if exist \"%%KURODIR%%\\%%MAPFILE%%\" goto late_collision\r\n");
+    fprintf(out, "copy /B /-Y \"%%DEMODIR%%%%MAPFILE%%\" \"%%KURODIR%%\\%%MAPFILE%%\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%MAPFILE%%\" \"%%KURODIR%%\\%%MAPFILE%%\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, ":skip_map_copy\r\n");
+
+    fprintf(out, "if not \"%%COPY_DMO%%\"==\"1\" goto skip_dmo_copy\r\n");
+    fprintf(out, "if exist \"%%KURODIR%%\\%%DEMOBASE%%.DMO\" goto late_collision\r\n");
+    fprintf(out, "copy /B /-Y \"%%DEMODIR%%%%DEMOBASE%%.DMO\" \"%%KURODIR%%\\%%DEMOBASE%%.DMO\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, "fc /b \"%%DEMODIR%%%%DEMOBASE%%.DMO\" \"%%KURODIR%%\\%%DEMOBASE%%.DMO\" >nul\r\n");
+    fprintf(out, "if errorlevel 1 goto copy_failed\r\n");
+    fprintf(out, ":skip_dmo_copy\r\n");
+
+    fprintf(out, "echo Required files are ready. Original archive files were preserved.\r\n");
+    fprintf(out, "echo Launching demo playback...\r\n");
+    fprintf(out, "start \"\" /D \"%%KURODIR%%\" \"%%KURODIR%%\\kuro.exe\" -dp%%DEMOBASE%%.DMO\r\n");
+    fprintf(out, "exit /b 0\r\n\r\n");
+
+    fprintf(out, ":collision\r\n");
+    fprintf(out, "echo ERROR: A destination filename exists, but its contents differ from the archived file.\r\n");
+    fprintf(out, "echo Nothing was overwritten. Resolve the conflicting file before playing this demo.\r\n");
+    fprintf(out, "pause\r\nexit /b 2\r\n\r\n");
+
+    fprintf(out, ":map_conflict\r\n");
+    fprintf(out, "echo ERROR: The installed map has the same filename but different contents.\r\n");
+    fprintf(out, "echo Neither map was overwritten. Nothing was copied during the preflight checks.\r\n");
+    fprintf(out, "pause\r\nexit /b 7\r\n\r\n");
+
+    fprintf(out, ":late_collision\r\n");
+    fprintf(out, "echo ERROR: A destination file appeared after the checks. No overwrite was attempted.\r\n");
+    fprintf(out, "echo Some earlier files may already have been copied; originals remain in this folder.\r\n");
+    fprintf(out, "pause\r\nexit /b 8\r\n\r\n");
+
+    fprintf(out, ":copy_failed\r\n");
+    fprintf(out, "echo ERROR: A file copy or byte-verification step failed.\r\n");
+    fprintf(out, "echo Originals remain in this folder. Check the Kuro folder for partial copies.\r\n");
+    fprintf(out, "pause\r\nexit /b 3\r\n\r\n");
+
+    fprintf(out, ":no_kuro\r\n");
+    fprintf(out, "echo ERROR: kuro.exe was not found two directories above this demo folder.\r\n");
+    fprintf(out, "pause\r\nexit /b 4\r\n\r\n");
+
+    fprintf(out, ":no_map\r\n");
+    fprintf(out, "echo ERROR: The expected archived map is missing. No files were copied.\r\n");
+    fprintf(out, "pause\r\nexit /b 6\r\n\r\n");
+
+    fprintf(out, ":no_demo\r\n");
+    fprintf(out, "echo ERROR: The expected DMO file is missing from this folder.\r\n");
+    fprintf(out, "pause\r\nexit /b 5\r\n");
+
+    if (fclose(out) != 0)
+        return false;
+
+    return true;
+}
+
+
 static void DemoAutoRecordFinish(void)
 {
     struct stat file_info;
     time_t stamp;
     struct tm *file_time;
     char source_name[192], folder_path[256], dest_demo[320];
-    char dest_wb[320], dest_txt[320], demo_base[32];
+    char dest_wb[320], dest_txt[320], dest_playdemo[320], demo_base[32];
     char copied_map_name[192];
     char map_part[160], date_part[32], time_part[32], archive_label[768];
     char random_letter;
@@ -1287,6 +1475,12 @@ static void DemoAutoRecordFinish(void)
         OSD_Printf("Automatic demo archive warning: could not write %s.\n", dest_wb);
     if (!DemoAutoWriteTXT(dest_txt, demo_base, archive_label))
         OSD_Printf("Automatic demo archive warning: could not write %s.\n", dest_txt);
+    snprintf(dest_playdemo, sizeof(dest_playdemo), "%s/PLAYDEMO.BAT", folder_path);
+    if (!DemoAutoWritePlayDemoBatch(dest_playdemo, demo_base,
+                                    map_copied ? copied_map_name : NULL))
+        OSD_Printf("Automatic demo archive warning: could not write %s.\n", dest_playdemo);
+    else
+        OSD_Printf("Double-click playback helper: %s\n", dest_playdemo);
     OSD_Printf("Automatic demo archive: %s\n", folder_path);
     OSD_Printf("WANGEN-style name: %s\n", archive_label);
 }

@@ -2320,6 +2320,15 @@ extern int ototalclock, save_totalclock, gotlastpacketclock,smoothratio;
 extern SWBOOL ready2send;
 extern SWBOOL GamePaused;
 
+// Optional command-line CTF capture-limit state. Winner: 0 = none, 1 = red, 2 = blue.
+extern int FlagCaptureLimit;
+extern int FlagCaptureWinner;
+extern int FlagCaptureRedCount;
+extern int FlagCaptureBlueCount;
+
+// Return the compact HUD's eligible map-derived CTF capture scores (-1 if a team counter is absent).
+SWBOOL GetCompactCTFCaptureScores(int *redScoreOut, int *blueScoreOut);
+
 // local copy of variables updated by faketimerhandler
 extern int locselectedgun;
 

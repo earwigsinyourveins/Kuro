@@ -2131,6 +2131,26 @@ DoFlagScore(int16_t pal)
             sp->picnum = 1900;          // Roll it over if you must
 
     }
+
+    // Optional CTF capture limit. Count score events instead of deriving the
+    // total from counter tiles, because the map's 1900-1999 counters roll over.
+    // With no -flags option, this block leaves vanilla gameplay unchanged.
+    if (FlagCaptureLimit > 0 && FlagCaptureWinner == 0 &&
+        gNet.MultiGameType == MULTI_GAME_COMMBAT && gNet.TeamPlay)
+    {
+        if (pal == PALETTE_PLAYER3) // standard red counter palette
+        {
+            ++FlagCaptureRedCount;
+            if (FlagCaptureRedCount >= FlagCaptureLimit)
+                FlagCaptureWinner = 1;
+        }
+        else if (pal == PALETTE_PLAYER7) // standard blue counter palette
+        {
+            ++FlagCaptureBlueCount;
+            if (FlagCaptureBlueCount >= FlagCaptureLimit)
+                FlagCaptureWinner = 2;
+        }
+    }
 }
 
 int

@@ -200,6 +200,13 @@ SWBOOL BotMode = FALSE;
 // -1 means use the saved AutoAim setting; 0/1 temporarily override it at launch.
 int AutoAimCommandLineOverride = -1;
 
+// Optional CTF capture limit. Zero preserves the original unlimited behavior.
+int FlagCaptureLimit = 0;
+// Winner: 0 = none, 1 = red team, 2 = blue team.
+int FlagCaptureWinner = 0;
+int FlagCaptureRedCount = 0;
+int FlagCaptureBlueCount = 0;
+
 // A command-line -dr request is replaced by the automatic archive recording
 // when an eligible regular multiplayer match starts.
 static SWBOOL DemoRecordCommandLine = FALSE;
@@ -1341,6 +1348,12 @@ void InitLevelGlobals(void)
     sumowasseen = FALSE;
     zillawasseen = FALSE;
     memset(BossSpriteNum,-1,sizeof(BossSpriteNum));
+
+    // A new map/round starts a fresh capture-limit score. The command-line
+    // limit itself persists, but per-round counts and the visual winner do not.
+    FlagCaptureRedCount = 0;
+    FlagCaptureBlueCount = 0;
+    FlagCaptureWinner = 0;
 
 	//PODA:  TURN PEDANTIC MODE ON ALWAYS FOR TESTING FOR NOW.  CAN TURN OFF LATER,
 	//BUT ALL PLAYERS HAVE TO RECORD OR NOT RECORD IN MULTIPLAYER.
@@ -3334,6 +3347,7 @@ CLI_ARG cli_arg[] =
 
     {0, "/name",               5,      "-name [playername]",   "Player Name"                           },
     {0, "/aim#",               5,      "-aim#",                "Temporarily override AutoAim: 0=off, 1=on" },
+    {0, "/flags###",           9,      "-flags###",            "CTF capture limit (1-100; omit for unlimited)" },
     {0, "/s",                  2,      "-s#",                  "Skill (1-4)"                           },
     {0, "/f#",                 3,      "-f#",                  "Packet Duplication - 2, 4, 8"          },
     {0, "/nopredict",          7,      "-nopred<ict>",         "Disable Net Prediction Method"         },
@@ -3479,6 +3493,34 @@ int32_t app_main(int32_t argc, char const * const * argv)
                  (argv[i][4] == '0' || argv[i][4] == '1'))
         {
             AutoAimCommandLineOverride = argv[i][4] - '0';
+        }
+        // Optional CTF end condition. Parse this early, before multiplayer starts,
+        // so every client uses the same deterministic limit when launched alike.
+        else if (Bstrncasecmp(argv[i]+1, "flags", 5) == 0 && strlen(argv[i]) > 6)
+        {
+            const char *limitText = argv[i] + 6; // skip '-' or '/' plus "flags"
+            int parsedLimit = 0;
+            SWBOOL digitsOnly = TRUE;
+            const char *digit = limitText;
+
+            for (; *digit; ++digit)
+            {
+                if (*digit < '0' || *digit > '9')
+                {
+                    digitsOnly = FALSE;
+                    break;
+                }
+                const int nextValue = parsedLimit * 10 + (*digit - '0');
+                if (nextValue > 100)
+                {
+                    digitsOnly = FALSE;
+                    break;
+                }
+                parsedLimit = nextValue;
+            }
+
+            if (digitsOnly && parsedLimit >= 1 && parsedLimit <= 100)
+                FlagCaptureLimit = parsedLimit;
         }
         else if (!Bstrcasecmp(argv[i]+1, "?"))
         {
