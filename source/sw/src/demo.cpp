@@ -585,15 +585,18 @@ DemoWriteHeader(void)
         fwrite(&ang, sizeof(ang), 1, DemoFileOut);
     }
 
-    // Preserve the fork's existing skill adjustment; the serialized fields
-    // and their order remain the classic format.
+    // Serialize the Skill that is actually in force for this game, exactly as
+    // vanilla/VoidSW/DOS do (-1 = No Monsters, 0..3 = Easy..Insane). The menu slider
+    // gs.NetMonsters is 1-based (0 = No Monsters) and is converted by
+    // MNU_StartNetGame()/PACKET_NEW_GAME into Skill = NetMonsters-1, so it must
+    // never be written to the header directly, and the global Skill must never be
+    // modified here: it stays live for the rest of the match and the next level.
+    // Single-player -debugactor games spawn no actors, so record them as -1.
+    short demoSkill = Skill;
     if (DebugActor && numplayers == 1)
-        Skill = -1;
+        demoSkill = -1;
 
-    if (numplayers >= 2)
-        Skill = gs.NetMonsters;
-
-    fwrite(&Skill, sizeof(Skill), 1, DemoFileOut);
+    fwrite(&demoSkill, sizeof(demoSkill), 1, DemoFileOut);
     fwrite(&gNet, sizeof(gNet), 1, DemoFileOut);
 
     if (DemoDebugMode)

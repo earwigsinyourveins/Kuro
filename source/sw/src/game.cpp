@@ -4184,7 +4184,7 @@ SWBOOL CONVETDEMO = TRUE;
             else if (MODNAME[0] != 0)
                 initgroupfile(MODNAME);
                 
-			if ((Skill == 0 && FakeMultiNumPlayers > 0) || (Skill == -1 && FakeMultiNumPlayers == 0))
+			if (Skill == -1 && FakeMultiNumPlayers == 0)
 				DebugActor = TRUE;
 
 			//ud_setup.ScreenMode = 0;
@@ -4386,7 +4386,7 @@ SWBOOL CONVETDEMO = TRUE;
 					else
 					{
 
-						sprintf(buf, " -s%1d", Skill);
+						sprintf(buf, " -s%1d", Skill + 1);
 						params[0] = params[0] + buf;
 
 					}
