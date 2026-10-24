@@ -36,7 +36,7 @@ BEGIN
     CONTROL "&Always show this window at startup", IDCALWAYSSHOW, "BUTTON", BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 118, 116, 140, 8
 END
 
-#define VER        1,0,0,2
+#define VER        1,0,0,3
 
 #if defined EDUKE32_FAKE_DATE || defined EDUKE32_FAKE_TIME
 # define VERSTR     REVSTR
