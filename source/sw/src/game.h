@@ -114,6 +114,12 @@ int krand1(void);
 
 extern SWBOOL PedanticMode;
 
+// Legacy VoidSW/Kuro demo compatibility.  When set, the simulation reproduces the
+// behaviour of builds that did not yet emulate DOS' unchecked sector[-1] read in
+// DoPlayerWadeSuperJump().  Enabled by -voidjumpbugcompat or by a VOIDJUMPBUGCOMPAT
+// marker inside the demo's .WANG/.WB sidecar.  Off by default (DOS-accurate).
+extern SWBOOL VoidJumpBugCompat;
+
 //PODA:  DEMOSS USED FOR SEPARATE SCREENSHOTS DIRECTORY WHEN RECORDING DEMOS.
 
 extern SWBOOL DEMOSS;

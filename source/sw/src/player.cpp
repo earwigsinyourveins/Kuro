@@ -4188,6 +4188,24 @@ DoPlayerClimb(PLAYERp pp)
 }
 
 
+// Diagnostic only: when recording/testing a demo sync trace, note every time the
+// DOS sector[-1] super jump quirk (see DoPlayerWadeSuperJump) changes the outcome.
+static void SuperJumpQuirkLog(PLAYERp pp)
+{
+    FILE *f;
+
+    if (!DemoSyncRecord && !DemoSyncTest)
+        return;
+
+    f = fopen("superjump.log", "a");
+    if (f)
+    {
+        fprintf(f, "demo tic %lu: player %d posz %d: DOS sector[-1] super jump applied\n",
+                DemoRunningTics, (int)(pp - Player), (int)pp->posz);
+        fclose(f);
+    }
+}
+
 int
 DoPlayerWadeSuperJump(PLAYERp pp)
 {
@@ -4209,12 +4227,49 @@ DoPlayerWadeSuperJump(PLAYERp pp)
 
         if (hitinfo.wall >= 0 && hitinfo.sect >= 0)
         {
+            int nextfloorz;
+            SWBOOL dosquirk = FALSE;
+
             hitinfo.sect = wall[hitinfo.wall].nextsector;
 
-            if (hitinfo.sect >= 0 && labs(sector[hitinfo.sect].floorz - pp->posz) < Z(50))
+            // DOS indexes sector[] with the wall's nextsector without checking it.
+            // For a solid (one-sided) wall nextsector is -1, so DOS reads sector[-1].
+            // In the DOS executable the bytes in front of sector[] belong to the tail
+            // of validmodeydim[] (see SW.MAP: _validmodeydim is immediately followed
+            // by _sector, and sector[-1].floorz is validmodeydim[248]), which is never
+            // written and is therefore always 0.
+            //
+            // Consequence in DOS: jumping while wading, facing a solid wall that is
+            // close enough, with |posz| < Z(50), counts as a "super jump" (the extra
+            // WadeDepth boost in DoPlayerBeginJump).  Older VoidSW/Kuro builds guarded
+            // the access with "hitinfo.sect >= 0" and never super jumped here, which
+            // makes the player's Z diverge from DOS right after the jump.
+            //
+            // VoidJumpBugCompat restores the old guarded behaviour, so that demos that
+            // were recorded before this was fixed still play back in sync.
+            if (hitinfo.sect >= 0)
+            {
+                nextfloorz = sector[hitinfo.sect].floorz;
+            }
+            else if (VoidJumpBugCompat)
+            {
+                continue;
+            }
+            else
+            {
+                nextfloorz = 0; // DOS: sector[-1].floorz
+                dosquirk = TRUE;
+            }
+
+            if (labs(nextfloorz - pp->posz) < Z(50))
             {
                 if (Distance(pp->posx, pp->posy, hitinfo.x, hitinfo.y) < ((((int)pp->SpriteP->clipdist)<<2) + 256))
+                {
+                    if (dosquirk)
+                        SuperJumpQuirkLog(pp);
+
                     return TRUE;
+                }
             }
         }
     }

@@ -24,6 +24,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 */
 //-------------------------------------------------------------------------
 #include "build.h"
+#include "palette.h"
 #include "osd.h"
 
 #include "keys.h"
@@ -559,6 +560,44 @@ static SWBOOL MNU_Dialog(void);
 static void MNU_ItemPreProcess(MenuGroup *group);
 static void MNU_SelectItem(MenuGroup *group, short index, SWBOOL draw);
 static void MNU_PushItem(MenuItem *item, SWBOOL draw);
+static void MNU_DrawStringLargeColored(short x, short y, const char *string, short shade, short pal);
+
+
+static int32_t KuroCreditsWhitePalette = -1;
+
+static int32_t MNU_GetKuroCreditsWhitePalette(void)
+{
+    if (KuroCreditsWhitePalette >= 0 && palookup[KuroCreditsWhitePalette] != NULL)
+        return KuroCreditsWhitePalette;
+
+    static char whiteRemap[256];
+    static SWBOOL remapInitialized = FALSE;
+    if (!remapInitialized)
+    {
+        for (int i = 0; i < 256; ++i)
+            whiteRemap[i] = (char)whitecol;
+        remapInitialized = TRUE;
+    }
+
+    // Avoid Shadow Warrior's known palettes and the engine's reserved renderer
+    // palettes. Prefer a currently-unused high slot so normal game palettes
+    // remain unchanged. Palette tables are fully loaded before this menu opens.
+    for (int32_t pal = NORMALPAL - 1; pal >= 64; --pal)
+    {
+        if (palookup[pal] == NULL)
+        {
+            paletteMakeLookupTable(pal, whiteRemap, 0, 0, 0, TRUE);
+            if (palookup[pal] != NULL)
+            {
+                KuroCreditsWhitePalette = pal;
+                return pal;
+            }
+        }
+    }
+
+    // Defensive fallback if every user palette slot is already occupied.
+    return PAL_XLAT_LT_GREY;
+}
 
 static int MNU_ControlAxisOffset(int num);
 static int MNU_ControlAxisNum(int offset);
@@ -1517,8 +1556,9 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
         4979,
         5113,
 
-        5120, // 5114    // JBF: for my credits
-        5120,
+        5120, // Kuro Credits page
+        5120, // Port Credits page 1 (JBF)
+        5120, // Port Credits page 2
     };
     static short SWOrderScreen[] =
     {
@@ -1530,8 +1570,9 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
         4979,
         5113,
 
-        5120, // 5114    // JBF: for my credits
-        5120,
+        5120, // Kuro Credits page
+        5120, // Port Credits page 1 (JBF)
+        5120, // Port Credits page 2
     };
     short *OrderScreen, OrderScreenSiz;
 
@@ -1622,16 +1663,38 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
         on_screen = 0;
 // CTW MODIFICATION END
 
-    int const shade = on_screen >= OrderScreenSiz-2 ? 8 : 0;
-    rotatesprite(0,0,RS_SCALE,0,OrderScreen[on_screen], shade, 0,
-                 (ROTATE_SPRITE_CORNER|ROTATE_SPRITE_SCREEN_CLIP|ROTATE_SPRITE_NON_MASK|ROTATE_SPRITE_IGNORE_START_MOST),
-                 0, 0, xdim-1, ydim-1);
 
-    if (on_screen >= OrderScreenSiz-2)
+
+    SWBOOL const isKuroCreditsPage = (on_screen == OrderScreenSiz-3);
+    int const shade = on_screen >= OrderScreenSiz-3 ? 8 : 0;
+    if (isKuroCreditsPage)
     {
-        // Jonathon's credits page hack :-)
+        // -1 forces a clear even outside 3D mode; palette 0 is black.
+        videoClearViewableArea(-1);
 
-        static const char *jtitle = "^Port Credits";
+        // skullz
+
+        int16_t const candleTile = static_cast<int16_t>(418 + ((static_cast<uint32_t>(totalclock) >> 4) % 3));
+        rotatesprite(20L<<16, 100L<<16, 65536, 0, candleTile, 0, 0,
+                     ROTATE_SPRITE_SCREEN_CLIP, 0, 0, xdim-1, ydim-1);
+        rotatesprite(300L<<16, 100L<<16, 65536, 0, candleTile, 0, 0,
+                     ROTATE_SPRITE_SCREEN_CLIP, 0, 0, xdim-1, ydim-1);
+    }
+    else
+        rotatesprite(0,0,RS_SCALE,0,OrderScreen[on_screen], shade, 0,
+                     (ROTATE_SPRITE_CORNER|ROTATE_SPRITE_SCREEN_CLIP|ROTATE_SPRITE_NON_MASK|ROTATE_SPRITE_IGNORE_START_MOST),
+                     0, 0, xdim-1, ydim-1);
+
+    if (on_screen >= OrderScreenSiz-3)
+    {
+
+        // Use unshaded default-palette glyphs on its black background for white text.
+        int16_t const savedMenuTextShade = MenuTextShade;
+        if (isKuroCreditsPage)
+            MenuTextShade = 0;
+
+        static const char *porttitle = "^VoidSW Credits";
+        static const char *kurotitle = "^Kuro";
         static const char *text1[] =
         {
             "*Developers (A-Z)",
@@ -1672,16 +1735,41 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
             " Visit eduke32.com for news and updates"
         };
 
+        static const char *text3[] =
+        {
+            " github.com/earwigsinyourveins/Kuro",
+            " desomorphine.ru/sw/demos",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+			"-",
+			"-",
+			"-",
+            "*by Mawxiwtz and Poda",
+        };
+
         const char ** jtext;
+        const char *jtitle;
         unsigned jtextsiz;
 
-        if (on_screen == OrderScreenSiz-2)
+
+        if (on_screen == OrderScreenSiz-3)
         {
+            jtitle = kurotitle;
+            jtext = text3;
+            jtextsiz = SIZ(text3);
+        }
+        else if (on_screen == OrderScreenSiz-2)
+        {
+            jtitle = porttitle;
             jtext = text1;
             jtextsiz = SIZ(text1);
         }
         else
         {
+            jtitle = porttitle;
             jtext = text2;
             jtextsiz = SIZ(text2);
         }
@@ -1708,7 +1796,10 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
         unsigned ji;
 
         dimy = 0; MNU_MeasureString(jtitle, &dimx, &dimy);
-        MNU_DrawString(160-(dimx>>1), ycur, jtitle, 0, 0);
+        if (isKuroCreditsPage)
+            MNU_DrawStringLargeColored(160-(dimx>>1), ycur, &jtitle[1], 0, MNU_GetKuroCreditsWhitePalette()); // Force every title glyph pixel to white.
+        else
+            MNU_DrawString(160-(dimx>>1), ycur, jtitle, 0, 0);
         ycur += dimy + 8;
 
         for (ji = 0; ji < jtextsiz; ji++)
@@ -1721,14 +1812,16 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
             case '*':
                 dimx = dimy = 0;
                 MNU_MeasureString(&jtext[ji][1], &dimx, &dimy);
-                MNU_DrawString(160-(dimx>>1), ycur, &jtext[ji][1], 0, 16);
+                MNU_DrawString(160-(dimx>>1), ycur, &jtext[ji][1], 0,
+                               isKuroCreditsPage ? 17 : 16);
                 ycur += dimy+1;
                 break;
             default:
                 if (ji>0 && jtext[ji-1][0] == '*') ycur += 3;
                 dimx = dimy = 0;
                 MNU_MeasureSmallString(&jtext[ji][1], &dimx, &dimy);
-                MNU_DrawSmallString(160-(dimx>>1), ycur, &jtext[ji][1], 0, 0);
+                MNU_DrawSmallString(160-(dimx>>1), ycur, &jtext[ji][1], 0,
+                                    isKuroCreditsPage ? 17 : 0);
                 ycur += dimy+1;
                 break;
             }
@@ -1746,6 +1839,7 @@ MNU_OrderCustom(UserCall call, MenuItem *item)
             MNU_DrawSmallString(160-(dimx>>1), 154+(m*7), scroller[i], 0, 8);
         }
 #endif
+        MenuTextShade = savedMenuTextShade;
     }
 
     //KB_ClearKeysDown();
@@ -2230,6 +2324,14 @@ MNU_MeasureStringLarge(const char *string, short *w, short *h)
 void
 MNU_DrawStringLarge(short x, short y, const char *string)
 {
+    // Preserve the original font behavior everywhere except pages that explicitly
+    // request a different palette (such as Kuro Credits).
+    MNU_DrawStringLargeColored(x, y, string, MenuTextShade, 0);
+}
+
+static void
+MNU_DrawStringLargeColored(short x, short y, const char *string, short shade, short pal)
+{
     int ndx, offset;
     char c;
     short pic;
@@ -2257,7 +2359,7 @@ MNU_DrawStringLarge(short x, short y, const char *string)
             continue;
         }
 
-        rotatesprite(offset << 16, y << 16, MZ, 0, pic, MenuTextShade, 0, MenuDrawFlags|ROTATE_SPRITE_CORNER, 0, 0, xdim - 1, ydim - 1);
+        rotatesprite(offset << 16, y << 16, MZ, 0, pic, shade, pal, MenuDrawFlags|ROTATE_SPRITE_CORNER, 0, 0, xdim - 1, ydim - 1);
         offset += tilesiz[pic].x + 1;
     }
 

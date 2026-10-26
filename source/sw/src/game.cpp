@@ -186,6 +186,7 @@ SWBOOL FirstTimeIntoGame;
 extern uint8_t RedBookSong[40];
 bool DisableSound = false;
 SWBOOL PedanticMode;
+SWBOOL VoidJumpBugCompat = FALSE;
 
 SWBOOL BorderAdjust = TRUE;
 SWBOOL LocationInfo = 0;
@@ -3818,6 +3819,12 @@ SWBOOL CONVETDEMO = TRUE;
 
 		//PODA:  TELL IT NOT TO RELAUNCH IF IT ALREADY DID FOR PLAYING A DEMO BACK.
 
+		// Kuro: replay demos recorded before DOS' sector[-1] super jump quirk was emulated.
+		else if (Bstrncasecmp(arg, "voidjumpbugcompat", 17) == 0)
+		{
+			VoidJumpBugCompat = TRUE;
+		}
+
 		else if (Bstrncasecmp(arg, "norelaunch", 10) == 0)
 		{
 						
@@ -4194,6 +4201,8 @@ SWBOOL CONVETDEMO = TRUE;
             {
                 if (stricmp(argv[x], "-nohide") == 0)
                     NoHide = TRUE;
+                else if (stricmp(argv[x], "-voidjumpbugcompat") == 0 || stricmp(argv[x], "/voidjumpbugcompat") == 0)
+                    VoidJumpBugCompat = TRUE;
 // BEGIN: Poda's new demo-format code, disabled for the sake of vanilla parity.
 // Retained as comments for possible future reuse.
 // The -convert switch only applied to Poda's extended-format conversion mode.
@@ -4208,6 +4217,15 @@ SWBOOL CONVETDEMO = TRUE;
                 std::string demoSearchPathArg;
                 if (!DemoDropSearchPath.empty())
                     demoSearchPathArg = " -j\"" + DemoDropSearchPath + "\"";
+
+                // Forward sync mode to the first relaunched instance only.
+                // It must appear BEFORE -dp and especially before /net: the
+                // multiplayer/network argument parser consumes the tail after /net.
+                std::string demoSyncArg;
+                if (DemoSyncRecord)
+                    demoSyncArg = " -demosyncrecord";
+                else if (DemoSyncTest)
+                    demoSyncArg = " -demosynctest";
 								
 				std::string playerNames[8] = { "PLAYER1", "PLAYER2", "PLAYER3", "PLAYER4", "PLAYER5", "PLAYER6", "PLAYER7", "PLAYER8"};
 				char playerColors[8] = {'0', '1', '2', '3', '4', '5', '6', '7'};
@@ -4318,6 +4336,26 @@ SWBOOL CONVETDEMO = TRUE;
 				for (int x = 0; x < count; ++x)
 					playerNames[x] = suppliedNames[x];
 
+				// Kuro: a VOIDJUMPBUGCOMPAT marker anywhere in the .WANG/.WB sidecar switches on
+				// the legacy VoidSW simulation quirks for this playback (see VoidJumpBugCompat).
+				if (!VoidJumpBugCompat)
+				{
+					std::ifstream compatIn(wangFile.c_str());
+					std::string compatLine;
+
+					while (compatIn && std::getline(compatIn, compatLine))
+					{
+						for (size_t ci = 0; ci < compatLine.size(); ++ci)
+							compatLine[ci] = (char)toupper((unsigned char)compatLine[ci]);
+
+						if (compatLine.find("VOIDJUMPBUGCOMPAT") != std::string::npos)
+						{
+							VoidJumpBugCompat = TRUE;
+							break;
+						}
+					}
+				}
+
 
 
 
@@ -4331,12 +4369,12 @@ SWBOOL CONVETDEMO = TRUE;
 					if (x == 0)
 // Poda new-format name/color variant disabled for vanilla parity:
 // params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "") + " -name \"" + (DemoNew ? std::string(DemoPlayerNames[x]) : playerNames[x]) + "\"" + std::string(buf) + MOD + " -dp\"" + DemoFileName + "\" /net ";
-						params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "") + " -name \"" + playerNames[x] + "\"" + std::string(buf) + MOD + demoSearchPathArg + " -dp\"" + DemoFileName + "\" /net ";
+						params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "") + " -name \"" + playerNames[x] + "\"" + std::string(buf) + MOD + demoSearchPathArg + (x == 0 ? demoSyncArg : std::string()) + " -dp\"" + DemoFileName + "\" /net ";
 
 					else
 // Poda new-format name/color variant disabled for vanilla parity:
 // params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "-hide") + " -name \"" + (DemoNew ? std::string(DemoPlayerNames[x]) : playerNames[x]) + "\"" + std::string(buf) + MOD + " -dp\"" + DemoFileName + "\" /net ";
-						params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "-hide") + " -name \"" + playerNames[x] + "\"" + std::string(buf) + MOD + demoSearchPathArg + " -dp\"" + DemoFileName + "\" /net ";
+						params[x] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch " + (NoHide ? "-nohide" : "-hide") + " -name \"" + playerNames[x] + "\"" + std::string(buf) + MOD + demoSearchPathArg + (x == 0 ? demoSyncArg : std::string()) + " -dp\"" + DemoFileName + "\" /net ";
 
 				
 // BEGIN: Poda's new demo-format code, disabled for the sake of vanilla parity.
@@ -4371,7 +4409,7 @@ SWBOOL CONVETDEMO = TRUE;
 					sprintf(buf, " -democol %d ", playerColors[0] - '0');
 // Poda new-format name/color variant disabled for vanilla parity:
 // params[0] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch -nohide -name \"" + (DemoNew ? std::string(DemoPlayerNames[0]) : playerNames[0]) + "\"" + std::string(buf) + MOD + " -dp" + DemoFileName;
-					params[0] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch -nohide -name \"" + playerNames[0] + "\"" + std::string(buf) + MOD + demoSearchPathArg + " -dp\"" + DemoFileName + "\"";
+					params[0] = GLOBALEXE + " -nosetup -noinstancechecking -norelaunch -nohide -name \"" + playerNames[0] + "\"" + std::string(buf) + MOD + demoSearchPathArg + demoSyncArg + " -dp\"" + DemoFileName + "\"";
 
 // BEGIN: Poda's new demo-format code, disabled for the sake of vanilla parity.
 // Retained as comments for possible future reuse.
@@ -4392,6 +4430,21 @@ SWBOOL CONVETDEMO = TRUE;
 					}
 
 				}			
+
+				// Kuro: pass the legacy compatibility switch on to every playback instance.  It has to
+				// sit in front of -dp, because everything after /net is ignored by the child.
+				if (VoidJumpBugCompat)
+				{
+					for (int x = 0; x < FakeMultiNumPlayers; ++x)
+					{
+						std::string::size_type dpPos = params[x].rfind(" -dp");
+
+						if (dpPos != std::string::npos)
+							params[x].insert(dpPos, " -voidjumpbugcompat");
+						else
+							params[x] += " -voidjumpbugcompat";
+					}
+				}
 
 				for (int x = 0; x < FakeMultiNumPlayers; ++x)
 				{
