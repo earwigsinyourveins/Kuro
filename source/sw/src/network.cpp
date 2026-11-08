@@ -1610,6 +1610,12 @@ getpackets(void)
 
             ready2send = 0;
 
+            // The time/frag limits are deterministic simulation counters, so every
+            // peer must apply the same -short setting before calculating them. This
+            // field is appended to PACKET_NEW_GAME; accept older packets without it.
+            if (packbufleng >= (int)sizeof(PACKET_NEW_GAME))
+                ShortGameMode = p->ShortGame ? TRUE : FALSE;
+
             Level = p->Level;
             Skill = p->Skill;
 

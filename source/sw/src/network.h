@@ -86,6 +86,9 @@ typedef struct
     uint8_t KillLimit;
     uint8_t TimeLimit;
     SWBOOL Nuke;
+    // Kuro extension: the short-game modifier affects both kill and time limits.
+    // Keep it at the end so older clients can ignore the extra trailing byte.
+    SWBOOL ShortGame;
 } PACKET_NEW_GAME,*PACKET_NEW_GAMEp;
 
 typedef struct
