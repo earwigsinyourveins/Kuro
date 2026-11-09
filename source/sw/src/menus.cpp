@@ -1996,7 +1996,7 @@ MNU_StartNetGame(void)
 
     if (CommEnabled)
     {
-        PACKET_NEW_GAME p = {};
+        PACKET_NEW_GAME p;
 
         p.PacketType = PACKET_TYPE_NEW_GAME;
         p.Level = Level;
@@ -2009,7 +2009,6 @@ MNU_StartNetGame(void)
         p.KillLimit = gs.NetKillLimit;
         p.TimeLimit = gs.NetTimeLimit;
         p.Nuke = gs.NetNuke;
-        p.ShortGame = ShortGameMode; // send the host's effective round-length modifier
 
         netbroadcastpacket((uint8_t*)(&p), sizeof(p));            // TENSW
     }

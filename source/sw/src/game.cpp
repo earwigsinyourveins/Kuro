@@ -3052,6 +3052,11 @@ void MoveLoop(void)
 
     getpackets();
 
+    // Another peer may have ended the level while we were still in MoveLoop.
+    // Do not predict or consume additional gameplay tics after that signal.
+    if (CommEnabled && ExitLevel)
+        return;
+
     if (PredictionOn && CommEnabled)
     {
         while (predictmovefifoplc < Player[myconnectindex].movefifoend)
@@ -3064,7 +3069,7 @@ void MoveLoop(void)
     if (!CommEnabled)
         bufferjitter = 0;
 
-    while (Player[myconnectindex].movefifoend - movefifoplc > bufferjitter)
+    while ((!CommEnabled || !ExitLevel) && Player[myconnectindex].movefifoend - movefifoplc > bufferjitter)
     {
         //Make sure you have at least 1 packet from everyone else
         for (pnum=connecthead; pnum>=0; pnum=connectpoint2[pnum])
@@ -3313,6 +3318,12 @@ RunLevel(void)
 
         if (ExitLevel)
         {
+            // ExitLevel is local state. Tell every peer to leave RunLevel too,
+            // otherwise the first peer stops sending gameplay inputs while the
+            // others may still be waiting to simulate the event that ended the level.
+            if (CommEnabled)
+                NetSendLevelExit();
+
             ExitLevel = FALSE;
             break;
         }

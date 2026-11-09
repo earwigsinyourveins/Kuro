@@ -40,6 +40,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #define PACKET_TYPE_DUMMY                           34
 #define PACKET_TYPE_MENU_LEVEL_QUIT                 35
 #define PACKET_TYPE_NAME_CHANGE                     36
+#define PACKET_TYPE_LEVEL_EXIT                      37
 #define PACKET_TYPE_VERSION                         38
 
 #define PACKET_TYPE_NULL_PACKET                     127
@@ -86,10 +87,19 @@ typedef struct
     uint8_t KillLimit;
     uint8_t TimeLimit;
     SWBOOL Nuke;
-    // Kuro extension: the short-game modifier affects both kill and time limits.
-    // Keep it at the end so older clients can ignore the extra trailing byte.
-    SWBOOL ShortGame;
 } PACKET_NEW_GAME,*PACKET_NEW_GAMEp;
+
+// Sent when a peer leaves RunLevel(). ExitLevel itself is local state, so
+// peers need this control packet to leave their own MoveLoop instead of
+// waiting forever for gameplay inputs from the peer already at the transition.
+typedef struct
+{
+    uint8_t PacketType;
+    int16_t SourceLevel;
+    int16_t DestinationLevel;
+    SWBOOL FinishedLevel;
+    SWBOOL FinishAnim;
+} PACKET_LEVEL_EXIT,*PACKET_LEVEL_EXITp;
 
 typedef struct
 {
@@ -195,6 +205,7 @@ void ResumeAction(void);
 void ErrorCorrectionQuit(void);
 void Connect(void);
 void waitforeverybody(void);
+void NetSendLevelExit(void);
 SWBOOL MenuCommPlayerQuit(short quit_player);
 void SendVersion(int version);
 void InitNetPlayerOptions(void);

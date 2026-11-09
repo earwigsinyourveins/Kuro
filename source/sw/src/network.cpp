@@ -71,6 +71,10 @@ extern SWBOOL PauseKeySet;
 gNET gNet;
 extern short PlayerQuitMenuLevel;
 extern SWBOOL QuitFlag;
+extern SWBOOL FinishedLevel;
+extern SWBOOL FinishAnim;
+extern short Level;
+extern short PlayingLevel;
 
 //#define NET_DEBUG_MSGS
 
@@ -85,6 +89,10 @@ SW_PACKET loc;
 //SW_PACKET oloc;
 
 SWBOOL ready2send = 0;
+
+// TRUE after this client has sent or received the current level's exit signal.
+// Reset with the network input FIFOs at the beginning of each level.
+static SWBOOL LevelExitSignalSeen = FALSE;
 
 SWBOOL CommEnabled = FALSE;
 uint8_t CommPlayers = 0;
@@ -217,6 +225,25 @@ void netbroadcastpacket(uint8_t* buf, int len)
         buildprintf(" %02x", buf[i]);
     buildputs("\n");
 #endif
+}
+
+void NetSendLevelExit(void)
+{
+    PACKET_LEVEL_EXIT packet = {};
+
+    if (!CommEnabled || LevelExitSignalSeen)
+        return;
+
+    packet.PacketType = PACKET_TYPE_LEVEL_EXIT;
+    packet.SourceLevel = PlayingLevel;
+    packet.DestinationLevel = Level;
+    packet.FinishedLevel = FinishedLevel;
+    packet.FinishAnim = FinishAnim;
+
+    // Mark before sending so a packet received from another peer cannot cause
+    // this client to echo the same end-of-level signal back to the network.
+    LevelExitSignalSeen = TRUE;
+    netbroadcastpacket((uint8_t *)&packet, sizeof(packet));
 }
 
 int netgetpacket(int *ind, uint8_t* buf)
@@ -924,6 +951,7 @@ InitNetVars(void)
     short pnum;
     PLAYERp pp;
 
+    LevelExitSignalSeen = FALSE;
     memset(&loc, 0, sizeof(loc));
 
     TRAVERSE_CONNECT(pnum)
@@ -1610,12 +1638,6 @@ getpackets(void)
 
             ready2send = 0;
 
-            // The time/frag limits are deterministic simulation counters, so every
-            // peer must apply the same -short setting before calculating them. This
-            // field is appended to PACKET_NEW_GAME; accept older packets without it.
-            if (packbufleng >= (int)sizeof(PACKET_NEW_GAME))
-                ShortGameMode = p->ShortGame ? TRUE : FALSE;
-
             Level = p->Level;
             Skill = p->Skill;
 
@@ -1726,6 +1748,25 @@ getpackets(void)
             break;
         }
 
+
+        case PACKET_TYPE_LEVEL_EXIT:
+        {
+            PACKET_LEVEL_EXITp p = (PACKET_LEVEL_EXITp)packbuf;
+
+            // Only apply an exit request while this client is still running the
+            // level. A peer already at a transition barrier has no gameplay loop
+            // left to unblock, and must not have its next-level state overwritten.
+            if (CommEnabled && ready2send && !LevelExitSignalSeen &&
+                p->SourceLevel == PlayingLevel)
+            {
+                Level = p->DestinationLevel;
+                FinishedLevel = p->FinishedLevel;
+                FinishAnim = p->FinishAnim;
+                ExitLevel = TRUE;
+                LevelExitSignalSeen = TRUE;
+            }
+            break;
+        }
 
         case PACKET_TYPE_MENU_LEVEL_QUIT:
         {
