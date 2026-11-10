@@ -1,2 +1,2 @@
-VC_REV := 00006
+VC_REV := 00008
 VC_HASH := nohash

@@ -3294,6 +3294,26 @@ void InitRunLevel(void)
         StartAmbientSound();
 }
 
+// Frag-limit completion is deterministic: every peer evaluates the same
+// synchronized player kill totals in MultiPlayLimits().  Do not use the
+// asynchronous PACKET_LEVEL_EXIT signal for this case, because a peer can
+// receive it before processing the final kill tic and leave MoveLoop early.
+static SWBOOL MultiplayerFragLimitReached(void)
+{
+    short pnum;
+
+    if (gNet.MultiGameType != MULTI_GAME_COMMBAT || !gNet.KillLimit)
+        return FALSE;
+
+    TRAVERSE_CONNECT(pnum)
+    {
+        if (Player[pnum].Kills >= gNet.KillLimit)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
 void
 RunLevel(void)
 {
@@ -3337,9 +3357,12 @@ RunLevel(void)
             // ExitLevel is local state. Tell every peer to leave RunLevel too,
             // otherwise the first peer stops sending gameplay inputs while the
             // others may still be waiting to simulate the event that ended the level.
-            // Include ScoreQuitPending in this packet so all clients quit together
-            // after the scoreboard, even if only one client initiated the exit.
-            if (CommEnabled)
+            // Frag-limit exits are already deterministic in the synchronized
+            // simulation, so every client will leave on the same processed tic.
+            // Broadcasting an early exit packet here can make a lagging peer
+            // leave MoveLoop before it has processed the final kill. Keep the
+            // packet for time-limit and manual/other local exit paths.
+            if (CommEnabled && !MultiplayerFragLimitReached())
                 NetSendLevelExit();
 
             ExitLevel = FALSE;
