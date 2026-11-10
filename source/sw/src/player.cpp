@@ -85,7 +85,6 @@ USER puser[MAX_SW_PLAYERS_REG];
 //int16_t gNet.MultiGameType = MULTI_GAME_NONE;
 SWBOOL NightVision = FALSE;
 extern SWBOOL FinishedLevel;
-extern SWBOOL ScoreQuit;    // -scorequit
 
 //#define PLAYER_TURN_SCALE (8)
 #define PLAYER_TURN_SCALE (12)
@@ -7924,7 +7923,6 @@ void MultiPlayLimits(void)
     short pnum;
     PLAYERp pp;
     SWBOOL Done = FALSE;
-    SWBOOL FragLimitHit = FALSE;
 
     if (ExitLevel)
         return;
@@ -7940,11 +7938,8 @@ void MultiPlayLimits(void)
             if (pp->Kills >= gNet.KillLimit)
             {
 				Done = TRUE;
-                FragLimitHit = TRUE;
-
-                // The round ends normally, so the scoreboard is shown and the demo is
-                // archived with its final scores. Whether the game then goes on to the
-                // next level or quits is decided below (-scorequit).
+                // Use the common ExitLevel path. RunLevel() applies -scorequit
+                // consistently to frag limits, time limits, and manual level exits.
             }
         }
     }
@@ -7965,14 +7960,6 @@ void MultiPlayLimits(void)
     if (Done)
     {
         gNet.TimeLimitClock = gNet.TimeLimit;
-
-        // -scorequit: when the FRAG limit ended the round, quit the game after the
-        // scoreboard instead of going on to the next level (Poda's original behavior).
-        // CON_Quit(true) only sets the local QuitFlag (and MultiPlayQuitFlag); it is not
-        // simulation state, so players with and without -scorequit stay in sync. Not while
-        // a demo is being played back, which has its own way to end.
-        if (FragLimitHit && ScoreQuit && !DemoPlaying)
-            CON_Quit(true);
 
         // do not increment if level is 23 thru 28
         if (Level <= 22)

@@ -169,6 +169,9 @@ extern SWBOOL NetBroadcastMode, NetModeOverride;
 SWBOOL MultiPlayQuitFlag = FALSE;
 // -scorequit: leave the game after the scoreboard when the frag limit ends a WangBang round
 SWBOOL ScoreQuit = FALSE;
+// Set by the frag-limit path and propagated with the multiplayer level-exit signal.
+// The actual application quit is deferred until every client has completed StatScreen().
+SWBOOL ScoreQuitPending = FALSE;
 //Miscellaneous variables
 char MessageInputString[256];
 char MessageOutputString[256];
@@ -1780,6 +1783,12 @@ NewLevel(void)
         }
 
         StatScreen(&Player[myconnectindex]);
+
+        // -scorequit must not set QuitFlag until after the shared end-of-round barrier
+        // and scoreboard. Otherwise RunLevel skips NetSendLevelExit() and the other
+        // clients can remain stuck waiting for gameplay input.
+        if (ScoreQuitPending)
+            QuitFlag = TRUE;
     }
 
     if (LoadGameFromDemo)
@@ -3318,9 +3327,18 @@ RunLevel(void)
 
         if (ExitLevel)
         {
+            // -scorequit applies to every multiplayer round-ending cause, not just
+            // the frag limit: time limit, level-exit sectors/switches, and other
+            // synchronized ExitLevel paths all leave through this point.
+            // Defer the actual quit until after waitforeverybody() and StatScreen().
+            if (CommEnabled && ScoreQuit && !DemoPlaying)
+                ScoreQuitPending = TRUE;
+
             // ExitLevel is local state. Tell every peer to leave RunLevel too,
             // otherwise the first peer stops sending gameplay inputs while the
             // others may still be waiting to simulate the event that ended the level.
+            // Include ScoreQuitPending in this packet so all clients quit together
+            // after the scoreboard, even if only one client initiated the exit.
             if (CommEnabled)
                 NetSendLevelExit();
 

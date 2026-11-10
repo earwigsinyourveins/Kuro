@@ -75,6 +75,7 @@ extern SWBOOL FinishedLevel;
 extern SWBOOL FinishAnim;
 extern short Level;
 extern short PlayingLevel;
+extern SWBOOL ScoreQuitPending;
 
 //#define NET_DEBUG_MSGS
 
@@ -239,6 +240,7 @@ void NetSendLevelExit(void)
     packet.DestinationLevel = Level;
     packet.FinishedLevel = FinishedLevel;
     packet.FinishAnim = FinishAnim;
+    packet.QuitAfterScoreboard = ScoreQuitPending;
 
     // Mark before sending so a packet received from another peer cannot cause
     // this client to echo the same end-of-level signal back to the network.
@@ -1756,14 +1758,22 @@ getpackets(void)
             // Only apply an exit request while this client is still running the
             // level. A peer already at a transition barrier has no gameplay loop
             // left to unblock, and must not have its next-level state overwritten.
-            if (CommEnabled && ready2send && !LevelExitSignalSeen &&
-                p->SourceLevel == PlayingLevel)
+            if (CommEnabled && p->SourceLevel == PlayingLevel)
             {
-                Level = p->DestinationLevel;
-                FinishedLevel = p->FinishedLevel;
-                FinishAnim = p->FinishAnim;
-                ExitLevel = TRUE;
-                LevelExitSignalSeen = TRUE;
+                // A peer may already have entered waitforeverybody() after an earlier
+                // level-exit packet. Still accept the scorequit bit while the old level
+                // is current, so the post-scoreboard quit decision cannot be lost.
+                if (p->QuitAfterScoreboard)
+                    ScoreQuitPending = TRUE;
+
+                if (ready2send && !LevelExitSignalSeen)
+                {
+                    Level = p->DestinationLevel;
+                    FinishedLevel = p->FinishedLevel;
+                    FinishAnim = p->FinishAnim;
+                    ExitLevel = TRUE;
+                    LevelExitSignalSeen = TRUE;
+                }
             }
             break;
         }

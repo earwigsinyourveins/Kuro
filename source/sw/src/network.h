@@ -99,6 +99,7 @@ typedef struct
     int16_t DestinationLevel;
     SWBOOL FinishedLevel;
     SWBOOL FinishAnim;
+    SWBOOL QuitAfterScoreboard;
 } PACKET_LEVEL_EXIT,*PACKET_LEVEL_EXITp;
 
 typedef struct
