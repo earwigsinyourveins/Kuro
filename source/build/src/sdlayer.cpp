@@ -455,7 +455,14 @@ void sdlayer_sethints()
 #if defined SDL_HINT_MOUSE_RELATIVE_SCALING
     SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "0");
 #endif
+
+#if defined SDL_HINT_WINDOWS_NO_CLOSE_ON_ALT_F4
+    // ALT + F4 is used by Remote Ridicule. Do not send the SDL_QUIT event for this key combination
+    SDL_SetHint(SDL_HINT_WINDOWS_NO_CLOSE_ON_ALT_F4, "1");
+#endif
 }
+
+
 
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow)

@@ -32,6 +32,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include "names2.h"
 #include "panel.h"
 #include "game.h"
+#include "osd.h"
 #include "quake.h"
 #include "vis.h"
 
@@ -2355,6 +2356,21 @@ drawscreen(PLAYERp pp)
 
     if (videoGetRenderMode() >= REND_POLYMOST)
         RedrawScreen = TRUE;
+
+    // The console is drawn straight into the frame buffer, on top of the frag bar and the
+    // border. Those are permanent sprites that the classic renderer does not repaint every
+    // frame, so whatever the console covered stayed covered after it was closed, until
+    // something else asked for a redraw. Redraw while the console is up and once more after
+    // it is gone.
+    {
+        static SWBOOL OsdWasUp = FALSE;
+        SWBOOL OsdIsUp = OSD_GetRowsCur() > 0;
+
+        if (OsdIsUp || OsdWasUp)
+            RedrawScreen = TRUE;
+
+        OsdWasUp = OsdIsUp;
+    }
 
     DrawScreen = TRUE;
     PreDraw();
