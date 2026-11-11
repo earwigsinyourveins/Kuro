@@ -4127,6 +4127,34 @@ int ActorCoughItem(short SpriteNum)
     return 0;
 }
 
+// -nocancer / -noheart (MDR): the Sticky Bomb (ICON_LG_MINE) and Ripper Heart
+// (ICON_HEART) pickups are left out of the level.
+static SWBOOL
+MdrItemForbidden(int id)
+{
+    return (id == ICON_LG_MINE && MDRFeature(MDR_FEATURE_NO_STICKY)) ||
+           (id == ICON_HEART && MDRFeature(MDR_FEATURE_NO_HEART));
+}
+
+// The level is built before the MDR features are known (see DemoMDRResolve()), so
+// InitRunLevel() calls this right after it: it removes the forbidden pickups that
+// are already placed. Items that appear later through SpawnItemsMatch() are
+// filtered there. Live matches and demo playback reach this at the same point
+// with the same features, so the simulation stays identical.
+void MdrRemoveForbiddenItems(void)
+{
+    short i, nexti;
+
+    if (!MDRFeature(MDR_FEATURE_NO_STICKY | MDR_FEATURE_NO_HEART))
+        return;
+
+    TRAVERSE_SPRITE_STAT(headspritestat[STAT_ITEM], i, nexti)
+    {
+        if (User[i] && MdrItemForbidden(User[i]->ID))
+            KillSprite(i);
+    }
+}
+
 int SpawnItemsMatch(short match)
 {
     short SpriteNum;
@@ -4183,6 +4211,8 @@ int SpawnItemsMatch(short match)
             break;
 
         case 42:
+            if (MdrItemForbidden(ICON_LG_MINE))
+                break;
             if (!ItemSpotClear(sip, STAT_ITEM, ICON_LG_MINE))
                 break;
 
@@ -4315,6 +4345,8 @@ int SpawnItemsMatch(short match)
             break;
 
         case 55:
+            if (MdrItemForbidden(ICON_HEART))
+                break;
             if (!ItemSpotClear(sip, STAT_ITEM, ICON_HEART))
                 break;
 

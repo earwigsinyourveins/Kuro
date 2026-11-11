@@ -53,6 +53,7 @@ void SpriteSetupPost(void);
 int ActorCoughItem(short SpriteNum);
 SWBOOL ActorSpawn(SPRITEp sp);
 int SpawnItemsMatch(short match);
+void MdrRemoveForbiddenItems(void);
 void PicAnimOff(short picnum);
 int MissileWaterAdjust(short SpriteNum);
 SWBOOL SpriteOverlapZ(int16_t spritenum_a,int16_t spritenum_b,int z_overlap);
