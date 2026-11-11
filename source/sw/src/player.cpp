@@ -6692,6 +6692,10 @@ DoPlayerBeginDie(PLAYERp pp)
 
     ActorCoughItem(pp->PlayerSprite);
 
+    // -newctf: the flags he carries drop to the ground where he died
+    if (MdrNewCtfActive())
+        MdrCtfDropCarried(pp);
+
     if (numplayers > 1)
     {
         // Give kill credit to player if necessary

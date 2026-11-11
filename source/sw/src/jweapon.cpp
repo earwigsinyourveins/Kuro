@@ -41,6 +41,8 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include "weapon.h"
 
 #include "sprite.h"
+#include "demo.h"
+#include "text.h"
 #include "sector.h"
 #include "actor.h"
 
@@ -197,6 +199,9 @@ STATE s_CaltropsStick[] =
 //////////////////////
 
 ANIMATOR DoFlag, DoCarryFlag, DoCarryFlagNoDet;
+ANIMATOR DoNewCtfCarry, DoNewCtfDropped;       // -newctf
+extern STATE s_IconFlag[];
+extern int DoSpawnItemTeleporterEffect(SPRITEp sp);
 
 #undef FLAG
 #define FLAG 2520
@@ -221,6 +226,21 @@ STATE s_Flag[] =
     {FLAG + 0, FLAG_RATE, DoFlag, &s_Flag[1]},
     {FLAG + 1, FLAG_RATE, DoFlag, &s_Flag[2]},
     {FLAG + 2, FLAG_RATE, DoFlag, &s_Flag[0]}
+};
+
+// -newctf: a flag somebody carries, and a flag that lies on the ground after it was dropped
+STATE s_NewCtfCarry[] =
+{
+    {FLAG + 0, FLAG_RATE, DoNewCtfCarry, &s_NewCtfCarry[1]},
+    {FLAG + 1, FLAG_RATE, DoNewCtfCarry, &s_NewCtfCarry[2]},
+    {FLAG + 2, FLAG_RATE, DoNewCtfCarry, &s_NewCtfCarry[0]}
+};
+
+STATE s_NewCtfDropped[] =
+{
+    {FLAG + 0, FLAG_RATE, DoNewCtfDropped, &s_NewCtfDropped[1]},
+    {FLAG + 1, FLAG_RATE, DoNewCtfDropped, &s_NewCtfDropped[2]},
+    {FLAG + 2, FLAG_RATE, DoNewCtfDropped, &s_NewCtfDropped[0]}
 };
 
 #define PHOSPHORUS_RATE 8
@@ -2474,6 +2494,328 @@ DoFlag(int16_t Weapon)
 }
 
 
+
+////////////////// NEW CTF (-newctf, MDR) ////////////////////////////////////////////////////
+// Traditional Capture the Flag rules, used instead of the DEATHFLAG rules above when -newctf
+// is active (MDR, team play). The map is the same: a flag of each team's color sits in a
+// sector tagged hitag 9000 / lotag <team color>, and that sector is the team's base.
+//
+//  - Every team has a "home flag": the flag sprite the map placed (ICON_FLAG, s_IconFlag). It
+//    never goes away. While it is invisible, its flag is away from the base.
+//  - Walking over an enemy flag that is at its base takes it: the home flag turns invisible and
+//    a carried flag (s_NewCtfCarry) attaches to the player. Nothing ever times out, beeps or
+//    explodes, and the home flag does not come back on a timer.
+//  - A carried flag falls to the ground (s_NewCtfDropped) where its carrier died, or vanished.
+//    The player's own team can pick up its dropped flag too, to carry it back to the base.
+//    Anybody can pick up an enemy flag lying around again.
+//  - A player carrying his own team's flag brings it home by entering the base sector: the flag
+//    is back at its stand. A player carrying an enemy flag captures it in the base sector, but only
+//    while his own team's flag is at its stand. The captured flag is back at its own base. A player
+//    may carry both flags; the own flag is dealt with first so that one visit does both.
+//
+// Everything here runs in the simulation (no random numbers, fixed iteration orders), so a
+// demo plays back the same way. Only the PutStringInfo()/PlaySound() calls are local.
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+SWBOOL
+MdrNewCtfActive(void)
+{
+    return MDRFeature(MDR_FEATURE_NEW_CTF) && gNet.MultiGameType == MULTI_GAME_COMMBAT && gNet.TeamPlay;
+}
+
+// the flag the map placed (as opposed to a carried or dropped one)
+static SWBOOL
+MdrCtfIsHomeFlag(USERp u)
+{
+    return u && u->ID == ICON_FLAG && u->StateStart == s_IconFlag;
+}
+
+static SWBOOL
+MdrCtfIsCarriedFlag(USERp u)
+{
+    return u && u->ID == ICON_FLAG && u->StateStart == s_NewCtfCarry && !TEST(u->Flags, SPR_SUICIDE);
+}
+
+// Is every home flag of this color at its stand?
+static SWBOOL
+MdrCtfFlagIsHome(short pal)
+{
+    short i, nexti;
+
+    TRAVERSE_SPRITE_STAT(headspritestat[STAT_ITEM], i, nexti)
+    {
+        if (!MdrCtfIsHomeFlag(User[i]))
+            continue;
+
+        if (sprite[i].pal != pal)
+            continue;
+
+        if (TEST(sprite[i].cstat, CSTAT_SPRITE_INVISIBLE))
+            return FALSE;
+    }
+
+    return TRUE;
+}
+
+// A flag lying on the ground rests on the floor below it; this also follows moving floors.
+static void
+MdrCtfSettle(int16_t Weapon)
+{
+    SPRITEp sp = &sprite[Weapon];
+    USERp u = User[Weapon];
+
+    DoActorZrange(Weapon);
+    sp->z = u->loz - (TEST(sp->cstat, CSTAT_SPRITE_YCENTER) ? SPRITEp_SIZE_BOS(sp) : 0);
+}
+
+// put a flag on a player's back
+static void
+MdrCtfAttach(int16_t Weapon, PLAYERp pp)
+{
+    SPRITEp sp = &sprite[Weapon];
+    USERp u = User[Weapon];
+    SPRITEp ps = &sprite[pp->PlayerSprite];
+
+    sp->shade = -20;
+    sp->xrepeat = sp->yrepeat = 64;
+    sp->cstat = CSTAT_SPRITE_ALIGNMENT_WALL;
+    u->Counter = 0;
+    u->Counter2 = 0;
+    u->Radius = 650;
+    ChangeState(Weapon, s_NewCtfCarry);
+
+    SetAttach(pp->PlayerSprite, Weapon);
+    SetOwner(pp->PlayerSprite, Weapon);     // the player owns the flag now
+    u->sz = SPRITEp_MID(ps);
+
+    setspritez_old(Weapon, ps->x, ps->y, SPRITEp_MID(ps));
+    sp->ang = NORM_ANGLE(ps->ang + 1536);
+}
+
+// A carried flag falls to the ground where it is. Used when its carrier dies, and when the
+// carrier is gone for any other reason.
+static void
+MdrCtfDrop(int16_t Weapon)
+{
+    SPRITEp sp = &sprite[Weapon];
+    USERp u = User[Weapon];
+
+    if (u->Attach >= 0 && User[u->Attach])
+    {
+        SPRITEp ap = &sprite[u->Attach];
+        setspritez_old(Weapon, ap->x, ap->y, SPRITEp_MID(ap));
+    }
+
+    u->Attach = -1;
+    sp->owner = -1;
+
+    // look like the flag on its stand again
+    if (u->FlagOwner >= 0 && User[u->FlagOwner])
+    {
+        SPRITEp hp = &sprite[u->FlagOwner];
+
+        sp->cstat = hp->cstat;
+        RESET(sp->cstat, CSTAT_SPRITE_INVISIBLE | CSTAT_SPRITE_BLOCK | CSTAT_SPRITE_BLOCK_HITSCAN);
+        sp->xrepeat = hp->xrepeat;
+        sp->yrepeat = hp->yrepeat;
+        sp->shade = hp->shade;
+        sp->ang = hp->ang;
+    }
+    else
+    {
+        sp->cstat = 0;
+        sp->xrepeat = sp->yrepeat = 64;
+        sp->shade = 0;
+    }
+
+    u->Counter = 0;
+    u->Counter2 = 0;
+    u->Radius = 650;
+    ChangeState(Weapon, s_NewCtfDropped);
+    MdrCtfSettle(Weapon);
+}
+
+// Called when a player dies: the flags he carries drop where he died.
+void
+MdrCtfDropCarried(PLAYERp pp)
+{
+    short i, nexti;
+
+    TRAVERSE_SPRITE_STAT(headspritestat[STAT_ITEM], i, nexti)
+    {
+        USERp iu = User[i];
+
+        if (!MdrCtfIsCarriedFlag(iu) || iu->Attach != pp->PlayerSprite)
+            continue;
+
+        MdrCtfDrop(i);
+    }
+}
+
+// The flag goes back to its stand: the home flag shows up again and the carried or
+// dropped flag is removed.
+static void
+MdrCtfReturnHome(int16_t Weapon)
+{
+    USERp u = User[Weapon];
+
+    if (u->FlagOwner >= 0 && User[u->FlagOwner])
+    {
+        SPRITEp hp = &sprite[u->FlagOwner];
+
+        RESET(hp->cstat, CSTAT_SPRITE_INVISIBLE);
+        PlaySound(DIGI_ITEM_SPAWN, &hp->x, &hp->y, &hp->z, v3df_none);
+        DoSpawnItemTeleporterEffect(hp);
+    }
+
+    SetSuicide(Weapon);
+}
+
+// A player touched a flag item: either the home flag on its stand or a dropped flag.
+// Returns TRUE if he picked it up.
+SWBOOL
+MdrCtfPickup(short SpriteNum, PLAYERp pp)
+{
+    SPRITEp sp = &sprite[SpriteNum];
+    USERp u = User[SpriteNum];
+    SPRITEp ps = &sprite[pp->PlayerSprite];
+    SWBOOL home = MdrCtfIsHomeFlag(u);
+    SWBOOL ownFlag = (sp->pal == ps->pal);
+    short New;
+
+    // a team's flag standing at its base is not for the team itself to take
+    if (home && ownFlag)
+        return FALSE;
+
+    PlaySound(DIGI_ITEM, &sp->x, &sp->y, &sp->z, v3df_dontpan);
+
+    if (home)
+    {
+        SPRITEp np;
+        USERp nu;
+
+        New = SpawnSprite(STAT_ITEM, ICON_FLAG, s_NewCtfCarry, sp->sectnum, sp->x, sp->y, sp->z, 0, 0);
+        np = &sprite[New];
+        nu = User[New];
+
+        nu->spal = np->pal = sp->pal;       // the color of the flag
+        nu->FlagOwner = SpriteNum;          // the flag that stood here
+
+        // the flag leaves its stand, and stays away until it is captured or brought back
+        SET(sp->cstat, CSTAT_SPRITE_INVISIBLE);
+    }
+    else
+    {
+        New = SpriteNum;
+    }
+
+    MdrCtfAttach(New, pp);
+
+    if (!ownFlag)
+        PutStringInfo(pp, "You have the enemy flag!");
+
+    return TRUE;
+}
+
+// the animator of a dropped flag: rest on the floor, and wait to be picked up
+int
+DoNewCtfDropped(int16_t Weapon)
+{
+    USERp u = User[Weapon];
+
+    if (TEST(u->Flags, SPR_SUICIDE))
+        return FALSE;
+
+    MdrCtfSettle(Weapon);
+
+    // DoGet() does the touching, and ends up in MdrCtfPickup()
+    DoGet(Weapon);
+
+    return FALSE;
+}
+
+// the animator of a carried flag
+int
+DoNewCtfCarry(int16_t Weapon)
+{
+    SPRITEp sp = &sprite[Weapon];
+    USERp u = User[Weapon];
+    SPRITEp ap, fp;
+    USERp au, fu;
+    PLAYERp pp;
+    short team, color;
+
+    if (TEST(u->Flags, SPR_SUICIDE))
+        return FALSE;
+
+    au = (u->Attach >= 0) ? User[u->Attach] : NULL;
+    pp = au ? au->PlayerP : NULL;
+
+    // The carrier is dead, or gone: drop the flag. MdrCtfDropCarried() normally does this
+    // at the moment of death already; this catches everything else.
+    if (!pp || au->Health <= 0 || TEST(pp->Flags, PF_DEAD))
+    {
+        MdrCtfDrop(Weapon);
+        return FALSE;
+    }
+
+    ap = &sprite[u->Attach];
+    team = ap->pal;
+    color = sp->pal;
+
+    // follow the carrier
+    setspritez_old(Weapon, ap->x, ap->y, SPRITEp_MID(ap));
+    sp->ang = NORM_ANGLE(ap->ang + 1536);
+    sp->z = ap->z - DIV2(SPRITEp_SIZE_Z(ap));
+    if (color == team)
+        sp->z -= Z(8);      // when both flags are carried, they don't sit on top of each other
+
+    // anything else only happens in the base of the carrier's team
+    if (sector[ap->sectnum].hitag != 9000 || sector[ap->sectnum].lotag != team)
+        return FALSE;
+
+    // his own team's flag, brought home
+    if (color == team)
+    {
+        PutStringInfo(pp, "Your flag has been returned!");
+        MdrCtfReturnHome(Weapon);
+        return FALSE;
+    }
+
+    // an enemy flag: it can only be captured while the own flag is at its stand
+    if (!MdrCtfFlagIsHome(team))
+        return FALSE;
+
+    // capture
+    fp = (u->FlagOwner >= 0) ? &sprite[u->FlagOwner] : NULL;
+    fu = (u->FlagOwner >= 0) ? User[u->FlagOwner] : NULL;
+
+    if (fp && fp->lotag)        // trigger everything if there is a lotag
+        DoMatchEverything(NULL, fp->lotag, ON);
+
+    if (!fp || !TEST_BOOL1(fp))
+    {
+        PlaySound(DIGI_BIGITEM, &ap->x, &ap->y, &ap->z, v3df_none);
+        DoFlagScore(ap->pal);
+        if (fp && fu && SP_TAG5(fp) > 0)
+        {
+            fu->filler++;
+            if (fu->filler >= SP_TAG5(fp))
+            {
+                fu->filler = 0;
+                DoMatchEverything(NULL, SP_TAG6(fp), ON);
+            }
+        }
+    }
+
+    PutStringInfo(pp, "You captured the enemy flag!");
+
+    // the captured flag is back at its own base
+    MdrCtfReturnHome(Weapon);
+
+    return FALSE;
+}
+
 int
 InitShell(int16_t SpriteNum, int16_t ShellNum)
 {
@@ -2605,6 +2947,8 @@ static saveable_data saveable_jweapon_data[] =
     SAVE_DATA(s_CarryFlag),
     SAVE_DATA(s_CarryFlagNoDet),
     SAVE_DATA(s_Flag),
+    SAVE_DATA(s_NewCtfCarry),
+    SAVE_DATA(s_NewCtfDropped),
     SAVE_DATA(s_Phosphorus),
     SAVE_DATA(s_BloodSprayChunk),
     SAVE_DATA(s_BloodSprayDrip),

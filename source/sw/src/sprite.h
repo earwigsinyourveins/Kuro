@@ -54,6 +54,10 @@ int ActorCoughItem(short SpriteNum);
 SWBOOL ActorSpawn(SPRITEp sp);
 int SpawnItemsMatch(short match);
 void MdrRemoveForbiddenItems(void);
+// -newctf (MDR): traditional Capture the Flag rules, implemented in jweapon.cpp
+SWBOOL MdrNewCtfActive(void);
+SWBOOL MdrCtfPickup(short SpriteNum, PLAYERp pp);
+void MdrCtfDropCarried(PLAYERp pp);
 void PicAnimOff(short picnum);
 int MissileWaterAdjust(short SpriteNum);
 SWBOOL SpriteOverlapZ(int16_t spritenum_a,int16_t spritenum_b,int z_overlap);

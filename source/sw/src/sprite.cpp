@@ -4127,7 +4127,7 @@ int ActorCoughItem(short SpriteNum)
     return 0;
 }
 
-// -nocancer / -noheart (MDR): the Sticky Bomb (ICON_LG_MINE) and Ripper Heart
+// -nosticky / -noheart (MDR): the Sticky Bomb (ICON_LG_MINE) and Ripper Heart
 // (ICON_HEART) pickups are left out of the level.
 static SWBOOL
 MdrItemForbidden(int id)
@@ -5668,6 +5668,10 @@ DoGet(short SpriteNum)
     // then "Re-Spawns" by becomming visible.  Its never actually killed.
     if (TEST(sp->cstat, CSTAT_SPRITE_INVISIBLE))
     {
+        // -newctf: a flag that was taken does not come back on a timer
+        if (u->ID == ICON_FLAG && MdrNewCtfActive())
+            return 0;
+
         u->WaitTics -= ACTORMOVETICS * 2;
         if (u->WaitTics <= 0)
         {
@@ -6511,6 +6515,14 @@ KeyMain:
             break;
 
         case ICON_FLAG:
+            // -newctf: traditional Capture the Flag rules
+            if (MdrNewCtfActive())
+            {
+                if (MdrCtfPickup(SpriteNum, pp))
+                    return 0;   // taken: nobody else can take it in the same tic
+                break;
+            }
+
             if (sp->pal == sprite[pp->PlayerSprite].pal) break; // Can't pick up your own flag!
 
             PlaySound(DIGI_ITEM, &sp->x, &sp->y, &sp->z, v3df_dontpan);

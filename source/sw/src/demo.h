@@ -49,16 +49,17 @@ extern SWBOOL DemoMDRActive;      // MDR rules are in force for the current leve
                                   // (negotiated for a live match, or read from the file)
 extern SWBOOL DemoExtendedFormat; // the demo being played back has the extended header
 
-// Gameplay features of the MDR mode (-wpn, -trix, -nocancer, -noheart, ...). Each one changes the
+// Gameplay features of the MDR mode (-wpn, -trix, -nosticky, -noheart, -newctf, ...). Each one changes the
 // simulation, so every player has to ask for it, it only takes effect together
 // with -mdr, and the demo header records it so that playback applies it as well.
 // Feature bit n is bit (16 + n) of the demo header flags and of the offer in the
 // version packet. Add new features here, one bit each (14 at most).
 #define MDR_FEATURE_WEAPONS_STAY  (1u << 0)  // -wpn:  WangBang weapons stay once picked up, as in Cooperative
 #define MDR_FEATURE_BUNNY_ROCKETS (1u << 1)  // -trix: bunny rockets for everybody, like the swtrix cheat
-#define MDR_FEATURE_NO_STICKY     (1u << 2)  // -nocancer: no Sticky Bomb pickups on the map
+#define MDR_FEATURE_NO_STICKY     (1u << 2)  // -nosticky: no Sticky Bomb pickups on the map
 #define MDR_FEATURE_NO_HEART      (1u << 3)  // -noheart:  no Ripper Heart pickups on the map
-#define MDR_FEATURE_ALL (MDR_FEATURE_WEAPONS_STAY | MDR_FEATURE_BUNNY_ROCKETS | MDR_FEATURE_NO_STICKY | MDR_FEATURE_NO_HEART)
+#define MDR_FEATURE_NEW_CTF       (1u << 4)  // -newctf: traditional Capture the Flag rules (see MdrNewCtfActive())
+#define MDR_FEATURE_ALL (MDR_FEATURE_WEAPONS_STAY | MDR_FEATURE_BUNNY_ROCKETS | MDR_FEATURE_NO_STICKY | MDR_FEATURE_NO_HEART | MDR_FEATURE_NEW_CTF)
 extern uint32_t DemoMDRRequestedFeatures;    // asked for on the command line (ignored without -mdr)
 extern uint32_t DemoMDRFeatures;             // in force for the current level (0 unless DemoMDRActive)
 static inline SWBOOL MDRFeature(uint32_t feature) { return (DemoMDRFeatures & feature) != 0; }

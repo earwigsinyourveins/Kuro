@@ -1368,7 +1368,7 @@ void InitLevelGlobals(void)
 
 	// -mdr is the only thing that turns pedantic mode off again: InitRunLevel() does
 	// so for the level that is about to start, once every player has agreed. The same
-	// goes for the MDR gameplay features (-wpn, -trix, -nocancer, -noheart).
+	// goes for the MDR gameplay features (-wpn, -trix, -nosticky, -noheart, -newctf).
 	DemoMDRActive = FALSE;
 	DemoMDRFeatures = 0;
 }
@@ -3221,7 +3221,7 @@ void InitRunLevel(void)
 
     DemoMDRResolve(mdrOffer);
 
-    // -nocancer / -noheart: the level was set up under the classic rules, so the
+    // -nosticky / -noheart: the level was set up under the classic rules, so the
     // pickups the features forbid are taken out now that the features are known.
     MdrRemoveForbiddenItems();
 
@@ -3460,8 +3460,9 @@ CLI_ARG cli_arg[] =
     {0, "/mdr",                4,      "-mdr",                 "Multiplayer: non-pedantic play with extended demo recording (all players need it; put it before -net)" },
     {0, "/wpn",                4,      "-wpn",                 "With -mdr: WangBang weapons stay once picked up, as in Cooperative (all players need it)" },
     {0, "/trix",               5,      "-trix",                "With -mdr: bunny rockets for everybody, like the swtrix cheat (all players need it)" },
-    {0, "/nocancer",           9,      "-nocancer",            "With -mdr: removes all Sticky Bomb pickups from the map (all players need it)" },
+    {0, "/nosticky",           9,      "-nosticky",            "With -mdr: removes all Sticky Bomb pickups from the map (all players need it)" },
     {0, "/noheart",            8,      "-noheart",             "With -mdr: removes all Ripper Heart pickups from the map (all players need it)" },
+    {0, "/newctf",             7,      "-newctf",              "With -mdr: traditional Capture the Flag rules in team games (all players need it)" },
     {0, "/scorequit",         10,      "-scorequit",           "Multiplayer: quit the game after the scoreboard when the frag limit is reached" },
     {0, "/m",                  6,      "-monst<ers>",          "No Monsters"                           },
     {0, "/nodemo",             6,      "-nodemo",              "No demos on game startup"              },
@@ -4154,7 +4155,7 @@ SWBOOL CONVETDEMO = TRUE;
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_BUNNY_ROCKETS;
         }
-        else if (Bstrcasecmp(arg, "nocancer") == 0)
+        else if (Bstrcasecmp(arg, "nosticky") == 0)
         {
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_NO_STICKY;
@@ -4163,6 +4164,11 @@ SWBOOL CONVETDEMO = TRUE;
         {
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_NO_HEART;
+        }
+        else if (Bstrcasecmp(arg, "newctf") == 0)
+        {
+            // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
+            DemoMDRRequestedFeatures |= MDR_FEATURE_NEW_CTF;
         }
         else if (Bstrncasecmp(arg, "dr", 2) == 0)
         {
