@@ -222,6 +222,60 @@ int netinit(int portnum)
     return(0);
 }
 
+// Demo playback runs one instance of the game per player and they talk to each other over
+// UDP, each on a port of its own. This finds `count` consecutive UDP ports, `firstport` or
+// above, that can be bound right now, so a leftover instance, another playback or any other
+// program sitting on one of the usual ports cannot keep an instance from joining (it would
+// not receive anything and the others would wait for it forever). Returns the first port of
+// the run, or -1 if there is none.
+int mmulti_findfreeports(int firstport, int count, int tries)
+{
+    if (count < 1 || count > MAXPLAYERS)
+        return -1;
+
+#ifdef _WIN32
+    if (wsainitialized == 0)
+    {
+        WSADATA ws;
+
+        if (WSAStartup(0x101,&ws) == SOCKET_ERROR) return -1;
+        wsainitialized = 1;
+    }
+#endif
+
+    for (int t = 0, base = firstport; t < tries && base + count <= 65535; t++, base += count)
+    {
+        SOCKET socks[MAXPLAYERS];
+        int n = 0;
+
+        for (; n < count; n++)
+        {
+            struct sockaddr_in ip;
+
+            socks[n] = socket(AF_INET,SOCK_DGRAM,0);
+            if (socks[n] == INVALID_SOCKET)
+                break;
+
+            ip.sin_family = AF_INET;
+            ip.sin_addr.s_addr = INADDR_ANY;
+            ip.sin_port = htons((unsigned short)(base + n));
+            if (bind(socks[n],(struct sockaddr *)&ip,sizeof(ip)) == SOCKET_ERROR)
+            {
+                closesocket(socks[n]);
+                break;
+            }
+        }
+
+        for (int i = 0; i < n; i++)
+            closesocket(socks[i]);
+
+        if (n == count)
+            return base;
+    }
+
+    return -1;
+}
+
 int netsend(int other, char *dabuf, int bufsiz)  //0:buffer full... can't send
 {
     struct sockaddr_in ip;
@@ -417,7 +471,8 @@ int initmultiplayersparms(int argc, const char * const *argv)
         }
     }
 
-    netinit(portnum);
+    if (!netinit(portnum))
+        LOG_F(ERROR, "mmulti: could not bind UDP port %d; other players will not be able to reach this instance.", portnum);
 
     for (i=0;i<argc;i++)
     {

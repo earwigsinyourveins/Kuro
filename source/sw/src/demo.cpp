@@ -281,7 +281,7 @@ static_assert(MAX_SW_PLAYERS_REG == 8, "the extended demo header stores eight pl
 
 // What this player offers the others in the version packet: -mdr and the gameplay
 // features asked for with it. Nothing at all unless the match would be auto-recorded
-// and -mdr was given, so -wpn/-trix/-nosticky/-noheart/-newctf without -mdr are ignored.
+// and -mdr was given, so -wpn/-trix/-nosticky/-noheart/-newctf/-aim3 without -mdr are ignored.
 int DemoMDRVersionBits(SWBOOL offered)
 {
     if (!offered)
@@ -294,12 +294,13 @@ int DemoMDRVersionBits(SWBOOL offered)
 static void
 DemoMDRPrintFeatures(uint32_t features)
 {
-    OSD_Printf("MDR features: weapons stay (-wpn) %s, bunny rockets (-trix) %s, no sticky bombs (-nosticky) %s, no ripper hearts (-noheart) %s, new CTF (-newctf) %s.\n",
+    OSD_Printf("MDR features: weapons stay (-wpn) %s, bunny rockets (-trix) %s, no sticky bombs (-nosticky) %s, no ripper hearts (-noheart) %s, new CTF (-newctf) %s, hitscan-only autoaim (-aim3) %s.\n",
                (features & MDR_FEATURE_WEAPONS_STAY) ? "ON" : "off",
                (features & MDR_FEATURE_BUNNY_ROCKETS) ? "ON" : "off",
                (features & MDR_FEATURE_NO_STICKY) ? "ON" : "off",
                (features & MDR_FEATURE_NO_HEART) ? "ON" : "off",
-               (features & MDR_FEATURE_NEW_CTF) ? "ON" : "off");
+               (features & MDR_FEATURE_NEW_CTF) ? "ON" : "off",
+               (features & MDR_FEATURE_AIM_HITSCAN) ? "ON" : "off");
 }
 
 // Decide whether the MDR rules apply to the level that is starting, and which of
@@ -376,7 +377,7 @@ void DemoMDRResolve(SWBOOL offered)
     else if (DemoMDRRequestedFeatures && !DemoMDR && !ignoredNoticeShown)
     {
         ignoredNoticeShown = TRUE;
-        OSD_Printf("-wpn, -trix, -nosticky, -noheart and -newctf only work together with -mdr; ignored.\n");
+        OSD_Printf("-wpn, -trix, -nosticky, -noheart, -newctf and -aim3 only work together with -mdr; ignored.\n");
     }
 }
 

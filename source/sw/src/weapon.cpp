@@ -30,6 +30,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include "names2.h"
 #include "panel.h"
 #include "game.h"
+#include "demo.h"
 #include "interp.h"
 #include "interpso.h"
 #include "tags.h"
@@ -14320,6 +14321,10 @@ WeaponAutoAim(SPRITEp sp, short Missile, short ang, SWBOOL test)
         {
             return -1;
         }
+
+        // -aim3 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed
+        if (MDRFeature(MDR_FEATURE_AIM_HITSCAN))
+            return -1;
     }
 
     if ((hit_sprite = DoPickTarget(sp, ang, test)) != -1)
@@ -14390,6 +14395,10 @@ WeaponAutoAimZvel(SPRITEp sp, short Missile, int *zvel, short ang, SWBOOL test)
         {
             return -1;
         }
+
+        // -aim3 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed
+        if (MDRFeature(MDR_FEATURE_AIM_HITSCAN))
+            return -1;
     }
 
     if ((hit_sprite = DoPickTarget(sp, ang, test)) != -1)

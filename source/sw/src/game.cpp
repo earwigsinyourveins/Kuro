@@ -205,6 +205,9 @@ int GodMode = FALSE;
 SWBOOL BotMode = FALSE;
 // -1 means use the saved AutoAim setting; 0/1 temporarily override it at launch.
 int AutoAimCommandLineOverride = -1;
+// -aim3 together with -mdr: autoaim is switched on at launch (beating -aim0/-aim1) and, if every
+// player asks for it, only helps hitscan weapons. See MDR_FEATURE_AIM_HITSCAN.
+static SWBOOL AutoAimHitscanLaunch = FALSE;
 
 // Optional CTF capture limit. Zero preserves the original unlimited behavior.
 int FlagCaptureLimit = 0;
@@ -1368,7 +1371,7 @@ void InitLevelGlobals(void)
 
 	// -mdr is the only thing that turns pedantic mode off again: InitRunLevel() does
 	// so for the level that is about to start, once every player has agreed. The same
-	// goes for the MDR gameplay features (-wpn, -trix, -nosticky, -noheart, -newctf).
+	// goes for the MDR gameplay features (-wpn, -trix, -nosticky, -noheart, -newctf, -aim3).
 	DemoMDRActive = FALSE;
 	DemoMDRFeatures = 0;
 }
@@ -3450,6 +3453,7 @@ CLI_ARG cli_arg[] =
 
     {0, "/name",               5,      "-name [playername]",   "Player Name"                           },
     {0, "/aim#",               5,      "-aim#",                "Temporarily override AutoAim: 0=off, 1=on" },
+    {0, "/aim3",               5,      "-aim3",                "With -mdr: AutoAim on, but only for hitscan weapons (all players need it; beats -aim0/-aim1)" },
     {0, "/flags###",           9,      "-flags###",            "CTF capture limit (1-100; omit for unlimited)" },
     {0, "/s",                  2,      "-s#",                  "Skill (1-4)"                           },
     {0, "/f#",                 3,      "-f#",                  "Packet Duplication - 2, 4, 8"          },
@@ -3598,11 +3602,26 @@ int32_t app_main(int32_t argc, char const * const * argv)
             g_noLogo = 1;
         }
         // Parse this before CONFIG_ReadSetup(), which applies the temporary override.
+        else if (Bstrcasecmp(argv[i]+1, "aim3") == 0)
+        {
+            // Only does anything together with -mdr, wherever that is on the command line;
+            // without it -aim3 is ignored and -aim0/-aim1 keep working as before.
+            for (int k = 1; k < argc; ++k)
+            {
+                if ((argv[k][0] == '-' || argv[k][0] == '/') && Bstrcasecmp(argv[k]+1, "mdr") == 0)
+                {
+                    AutoAimHitscanLaunch = TRUE;
+                    AutoAimCommandLineOverride = 1;     // overrides -aim0 / -aim1, in any order
+                    break;
+                }
+            }
+        }
         else if (Bstrncasecmp(argv[i]+1, "aim", 3) == 0 &&
                  strlen(argv[i]) == 5 &&
                  (argv[i][4] == '0' || argv[i][4] == '1'))
         {
-            AutoAimCommandLineOverride = argv[i][4] - '0';
+            if (!AutoAimHitscanLaunch)
+                AutoAimCommandLineOverride = argv[i][4] - '0';
         }
         // Optional CTF end condition. Parse this early, before multiplayer starts,
         // so every client uses the same deterministic limit when launched alike.
@@ -4165,6 +4184,11 @@ SWBOOL CONVETDEMO = TRUE;
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_NO_HEART;
         }
+        else if (Bstrcasecmp(arg, "aim3") == 0)
+        {
+            // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
+            DemoMDRRequestedFeatures |= MDR_FEATURE_AIM_HITSCAN;
+        }
         else if (Bstrcasecmp(arg, "newctf") == 0)
         {
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
@@ -4376,8 +4400,28 @@ SWBOOL CONVETDEMO = TRUE;
 								
 				std::string playerNames[8] = { "PLAYER1", "PLAYER2", "PLAYER3", "PLAYER4", "PLAYER5", "PLAYER6", "PLAYER7", "PLAYER8"};
 				char playerColors[8] = {'0', '1', '2', '3', '4', '5', '6', '7'};
-				std::string ports[8] = { "33513","33514","33515","33516","33517","33518","33519","33520"};
-				std::string ips[8] = {"localhost:33513","localhost:33514","localhost:33515","localhost:33516","localhost:33517","localhost:33518","localhost:33519","localhost:33520"};
+				// The instances of one playback talk to each other over UDP, each on a port of its own.
+				// 33513 and up are used when they are free. If something else is holding one of them
+				// (a leftover instance, another playback...), an instance could not receive anything and
+				// the others would wait for it forever on the loading screen, so take the next free run.
+				// This only concerns the playback instances launched here, not real multiplayer games.
+				int basePort = 33513;
+				if (FakeMultiNumPlayers > 1)
+				{
+					int freePort = mmulti_findfreeports(33513, FakeMultiNumPlayers, 16);
+					if (freePort >= 0)
+						basePort = freePort;
+					else
+						LOG_F(WARNING, "demo playback: no free UDP port range found, using the default one.");
+					LOG_F(INFO, "demo playback: %d instances on UDP ports %d-%d", (int)FakeMultiNumPlayers, basePort, basePort + FakeMultiNumPlayers - 1);
+				}
+				std::string ports[8];
+				std::string ips[8];
+				for (int x = 0; x < 8; ++x)
+				{
+					ports[x] = std::to_string(basePort + x);
+					ips[x] = "localhost:" + ports[x];
+				}
 				std::string params[8];
 				char buf[22];
 
@@ -4617,7 +4661,19 @@ SWBOOL CONVETDEMO = TRUE;
 					}*/
 					
 					
-					::WinExec(params[x].c_str(), SW_SHOW);
+					// Right after a long time without running it (security software scanning the
+					// exe, a cold disk), starting a process can fail now and then. A playback is
+					// stuck for good if one of its instances never starts, so try again.
+					for (int attempt = 0; attempt < 10; ++attempt)
+					{
+						UINT launchResult = ::WinExec(params[x].c_str(), SW_SHOW);
+
+						if (launchResult > 31)
+							break;
+
+						LOG_F(WARNING, "demo playback: starting instance %d failed (code %u), attempt %d", x + 1, (unsigned)launchResult, attempt + 1);
+						::Sleep(300);
+					}
 					
 				}
 

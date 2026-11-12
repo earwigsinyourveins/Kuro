@@ -28,6 +28,7 @@ void mmulti_sendlogon(void);
 void mmulti_sendlogoff(void);
 int mmulti_getoutputcirclesize(void);
 void mmulti_sendpacket(int other, unsigned char *bufptr, int messleng);
+int mmulti_findfreeports(int firstport, int count, int tries);
 int mmulti_getpacket(int *other, unsigned char *bufptr);
 void mmulti_flushpackets(void);
 void mmulti_generic(int other, unsigned char *bufptr, int messleng, int command);
