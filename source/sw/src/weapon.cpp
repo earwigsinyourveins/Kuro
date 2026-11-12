@@ -14322,8 +14322,9 @@ WeaponAutoAim(SPRITEp sp, short Missile, short ang, SWBOOL test)
             return -1;
         }
 
-        // -aim3 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed
-        if (MDRFeature(MDR_FEATURE_AIM_HITSCAN))
+        // -aim2 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed.
+        // Exception: the railgun is technically a projectile, but it still gets autoaim.
+        if (MDRFeature(MDR_FEATURE_AIM_HITSCAN) && !(wu && wu->WeaponNum == WPN_RAIL))
             return -1;
     }
 
@@ -14396,7 +14397,7 @@ WeaponAutoAimZvel(SPRITEp sp, short Missile, int *zvel, short ang, SWBOOL test)
             return -1;
         }
 
-        // -aim3 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed
+        // -aim2 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed
         if (MDRFeature(MDR_FEATURE_AIM_HITSCAN))
             return -1;
     }

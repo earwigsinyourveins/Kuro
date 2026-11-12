@@ -205,7 +205,7 @@ int GodMode = FALSE;
 SWBOOL BotMode = FALSE;
 // -1 means use the saved AutoAim setting; 0/1 temporarily override it at launch.
 int AutoAimCommandLineOverride = -1;
-// -aim3 together with -mdr: autoaim is switched on at launch (beating -aim0/-aim1) and, if every
+// -aim2 together with -mdr: autoaim is switched on at launch (beating -aim0/-aim1) and, if every
 // player asks for it, only helps hitscan weapons. See MDR_FEATURE_AIM_HITSCAN.
 static SWBOOL AutoAimHitscanLaunch = FALSE;
 
@@ -1371,7 +1371,7 @@ void InitLevelGlobals(void)
 
 	// -mdr is the only thing that turns pedantic mode off again: InitRunLevel() does
 	// so for the level that is about to start, once every player has agreed. The same
-	// goes for the MDR gameplay features (-wpn, -trix, -nosticky, -noheart, -newctf, -aim3).
+	// goes for the MDR gameplay features (-wpn, -trix, -nosticky, -noheart, -newctf, -aim2).
 	DemoMDRActive = FALSE;
 	DemoMDRFeatures = 0;
 }
@@ -3453,7 +3453,7 @@ CLI_ARG cli_arg[] =
 
     {0, "/name",               5,      "-name [playername]",   "Player Name"                           },
     {0, "/aim#",               5,      "-aim#",                "Temporarily override AutoAim: 0=off, 1=on" },
-    {0, "/aim3",               5,      "-aim3",                "With -mdr: AutoAim on, but only for hitscan weapons (all players need it; beats -aim0/-aim1)" },
+    {0, "/aim2",               5,      "-aim2",                "With -mdr: AutoAim on, but only for hitscan weapons (all players need it; beats -aim0/-aim1)" },
     {0, "/flags###",           9,      "-flags###",            "CTF capture limit (1-100; omit for unlimited)" },
     {0, "/s",                  2,      "-s#",                  "Skill (1-4)"                           },
     {0, "/f#",                 3,      "-f#",                  "Packet Duplication - 2, 4, 8"          },
@@ -3602,10 +3602,10 @@ int32_t app_main(int32_t argc, char const * const * argv)
             g_noLogo = 1;
         }
         // Parse this before CONFIG_ReadSetup(), which applies the temporary override.
-        else if (Bstrcasecmp(argv[i]+1, "aim3") == 0)
+        else if (Bstrcasecmp(argv[i]+1, "aim2") == 0)
         {
             // Only does anything together with -mdr, wherever that is on the command line;
-            // without it -aim3 is ignored and -aim0/-aim1 keep working as before.
+            // without it -aim2 is ignored and -aim0/-aim1 keep working as before.
             for (int k = 1; k < argc; ++k)
             {
                 if ((argv[k][0] == '-' || argv[k][0] == '/') && Bstrcasecmp(argv[k]+1, "mdr") == 0)
@@ -4184,7 +4184,7 @@ SWBOOL CONVETDEMO = TRUE;
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_NO_HEART;
         }
-        else if (Bstrcasecmp(arg, "aim3") == 0)
+        else if (Bstrcasecmp(arg, "aim2") == 0)
         {
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_AIM_HITSCAN;
