@@ -479,10 +479,11 @@ char const * texcache_calcid(char *outbuf, const char *filename, const int32_t l
     // gets no padding inserted by the compiler.
     EDUKE32_STATIC_ASSERT((BMAX_PATH & 3) == 0);
 
+    // Cached textures have the brightness baked in, so it is part of the id.
     struct texcacheid_t {
-        int32_t len, method;
+        int32_t len, method, brightness;
         char effect, name[BMAX_PATH+3];  // +3: pad to a multiple of 4
-    } id = { len, dameth, effect, "" };
+    } id = { len, dameth, curbrightness, effect, "" };
 
     EDUKE32_STATIC_ASSERT((sizeof(struct texcacheid_t) & 3) == 0);
 

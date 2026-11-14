@@ -1293,6 +1293,8 @@ int32_t    printext16(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol,
                       const char *name, char fontsize) ATTRIBUTE((nonnull(5)));
 void   printext256(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol,
                    const char *name, char fontsize) ATTRIBUTE((nonnull(5)));
+void   printext256_scaled(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol,
+                          const char *name, char fontsize, int32_t scale) ATTRIBUTE((nonnull(5)));
 void   Buninitart(void);
 
 void   initcrc16(void);

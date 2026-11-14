@@ -195,6 +195,7 @@ SWBOOL VoidJumpBugCompat = FALSE;
 
 SWBOOL BorderAdjust = TRUE;
 SWBOOL LocationInfo = 0;
+int32_t r_showfps = 0;          // cvar: draw the (purely visual) frame rate counter
 void drawoverheadmap(int cposx, int cposy, int czoom, short cang);
 int DispFrameRate = FALSE;
 int DispMono = TRUE;
@@ -3346,7 +3347,15 @@ RunLevel(void)
         MoveLoop();
         //MONO_PRINT("After MoveLoop");
         //MONO_PRINT("Before DrawScreen");
-        drawscreen(Player + screenpeek);
+
+        // r_maxfps: frame limiter. It only decides whether a frame is drawn on this pass
+        // of the loop. The simulation (MoveLoop(), input, networking, the timers) runs
+        // exactly as before, so limiting the frame rate cannot change what happens in the
+        // game, and does not touch the RNG.
+        if (engineFPSLimit())
+            drawscreen(Player + screenpeek);
+        else if (engineFPSLimitNanosLeft() > 1500000)
+            idle(1);    // plenty of time left before the next frame: let the CPU rest
         //MONO_PRINT("After DrawScreen");
 
         if (QuitFlag)
@@ -3466,6 +3475,7 @@ CLI_ARG cli_arg[] =
     {0, "/trix",               5,      "-trix",                "With -mdr: bunny rockets for everybody, like the swtrix cheat (all players need it)" },
     {0, "/nosticky",           9,      "-nosticky",            "With -mdr: removes all Sticky Bomb pickups from the map (all players need it)" },
     {0, "/noheart",            8,      "-noheart",             "With -mdr: removes all Ripper Heart pickups from the map (all players need it)" },
+    {0, "/noexit",             7,      "-noexit",              "With -mdr: level exits (exit switches and exit sectors) do nothing (all players need it)" },
     {0, "/newctf",             7,      "-newctf",              "With -mdr: traditional Capture the Flag rules in team games (all players need it)" },
     {0, "/scorequit",         10,      "-scorequit",           "Multiplayer: quit the game after the scoreboard when the frag limit is reached" },
     {0, "/m",                  6,      "-monst<ers>",          "No Monsters"                           },
@@ -4183,6 +4193,11 @@ SWBOOL CONVETDEMO = TRUE;
         {
             // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
             DemoMDRRequestedFeatures |= MDR_FEATURE_NO_HEART;
+        }
+        else if (Bstrcasecmp(arg, "noexit") == 0)
+        {
+            // MDR gameplay feature, ignored unless -mdr is given and every player asks for it.
+            DemoMDRRequestedFeatures |= MDR_FEATURE_NO_EXIT;
         }
         else if (Bstrcasecmp(arg, "aim2") == 0)
         {

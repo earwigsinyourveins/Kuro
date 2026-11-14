@@ -883,9 +883,23 @@ void maybe_redirect_outputs(void)
 #endif
 }
 
+static uint64_t s_fpsLimitLastFrameTicks;
+
+// How long until engineFPSLimit() will allow the next frame, in nanoseconds (0: now / no limit).
+// Lets a game loop sleep instead of spinning while it waits.
+uint64_t engineFPSLimitNanosLeft(void)
+{
+    if (r_maxfps == -2 || !g_frameDelay)
+        return 0;
+
+    uint64_t const elapsed = timerGetNanoTicks() - s_fpsLimitLastFrameTicks;
+
+    return elapsed >= g_frameDelay ? 0 : g_frameDelay - elapsed;
+}
+
 int engineFPSLimit(bool const throttle)
 {
-    static uint64_t lastFrameTicks;
+    uint64_t &lastFrameTicks = s_fpsLimitLastFrameTicks;
     static uint64_t lastDelay;
 
     if (r_maxfps == -2)

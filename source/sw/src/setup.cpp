@@ -132,6 +132,16 @@ void InitSetup(void)
 
     RTS_Init(RTSName);
 
+    // Kuro cvars: registered before the cvar file is executed so saved values are applied.
+    extern int32_t r_showfps;
+    static osdcvardata_t cvars_kuro[] =
+    {
+        { "r_showfps", "show the frame rate counter in the upper right corner of the screen", (void *)&r_showfps, CVAR_BOOL, 0, 1 },
+    };
+
+    for (auto &cv : cvars_kuro)
+        OSD_RegisterCvar(&cv, osdcmd_cvar_set);
+
     OSD_Exec(APPBASENAME "_cvars.cfg");
     OSD_Exec(APPBASENAME "_autoexec.cfg");
 

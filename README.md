@@ -1,7 +1,7 @@
 <img width="800" height="562" alt="KuroBG" src="https://github.com/user-attachments/assets/4903979f-7fd7-4fcf-a069-7ea39a22cdeb" />
 
 # Kuro, or KuroSW, is a fork of VoidSW with multiplayer enhancements and hotfixes.
- Play it on [NukemNet](https://nukemnet.com/home).
+ Made for [NukemNet](https://nukemnet.com/home).
 
 Originally started by Poda as VoidSWD and picked up by me.
 
@@ -11,15 +11,16 @@ Features as of yet, with the ones mainly coded by Poda marked as such:
 3. Fixed VoidSW inaccuracy regarding failing to trigger super jumps directed at solid walls. In theory, Kuro is now able to record Dos-replayable WangBang demos without a flinch, regardless of map or other discrepancies! Dos-recorded demos that used to desync in VoidSW now play fine in Kuro as well.
    Compatibility toggle to play bad VoidSW demos is also there, just state `VOIDJUMPBUGCOMPAT` anywhere in demo-relative .wang/.wb file and it will emulate VoidSW's inaccuracies during the playback.
 4. Automatic demo recording for multiplayer games, regardless if it was started with `-autonet` on initial launch or in-game menu, including composure of .WANG files with recorded names and colors. Kills are stored as well in a respective .txt report and demo folder titles.
-5. Extended demo format untied from pedantic mode (`-mdr`), with chat during playback and optional gameplay tweaks: weapon stay (`-wpn`), removal of stickies and ripper hearts (`-nosticky` and `-noheart`), capture the flag revamp (`-newctf`), bunny rockets (`-trix`)
+5. Extended demo format untied from pedantic mode (`-mdr`), with chat during playback and optional gameplay tweaks: hitscan only auto-aim (`-aim2`), weapon stay (`-wpn`), removal of stickies and ripper hearts (`-nosticky` and `-noheart`), capture the flag revamp (`-newctf`), disabled level exits (`-noexit`), bunny rockets (`-trix`)
 6. Ported ProAsm's compact HUD from SWP, and added heat card/nuke display which can be toggled off by flipping `ShowHeat` and `ShowNuke` in kuro.cfg. Thanks to HellFire aka reu for the suggestion.
 7. Chat logging in console and demo-relative .txt report.
 8. CTF capture counter display during a team game and if counter sprites are set on the map, and flag capture limit via `-flags###` argument. Thanks to P4ft for the idea.
-9. Fixed brightness slider and screen flash effects in software renderer.
-10. Fix for widescreen patch causing demo desyncs and out of sync during multiplayer with clients who don't have it.   
-11. Fix for FOV jumping to 90 when TV_CAMERA_SCREEN is in player's field of view.
-12. `-aim#` argument to force AutoAim on or off with `-autonet`.
-13. Armor display for minimal HUD. Could be toggled off by setting `MinHUDArmor` to 0 in kuro.cfg
+9. FPS counter (`r_showfps`) and frame limiter (`r_maxfps`) CVARs. For frame limiter `-2` is unlimited, `0` is 1000, and `-1` is monitor's refresh rate.
+10. Fixed brightness slider and screen flash effects in software renderer.
+11. Fix for widescreen patch causing demo desyncs and out of sync during multiplayer with clients who don't have it.   
+12. Fix for FOV jumping to 90 when TV_CAMERA_SCREEN is in player's field of view.
+13. `-aim#` argument to force AutoAim on or off with `-autonet`.
+14. Armor display for minimal HUD. Could be toggled off by setting `MinHUDArmor` to 0 in kuro.cfg
 
 Builds on Windows with MinGW32, 64 bit is unsupported for now. Address [EDukeWiki](https://wiki.eduke32.com/wiki/Building_EDuke32_on_Windows#MinGW-w64/GCC_with_MSYS2) for a complete set of instructions. Wangulator linker failure is normal.
 

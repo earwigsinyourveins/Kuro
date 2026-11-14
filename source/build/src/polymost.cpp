@@ -1901,9 +1901,10 @@ void uploadbasepalette(int32_t basepalnum)
     uint8_t basepalWFullBrightInfo[4*256];
     for (int i = 0; i < 256; ++i)
     {
-        basepalWFullBrightInfo[i*4] = basepaltable[basepalnum][i*3];
-        basepalWFullBrightInfo[i*4+1] = basepaltable[basepalnum][i*3+1];
-        basepalWFullBrightInfo[i*4+2] = basepaltable[basepalnum][i*3+2];
+        // brightness is baked into the palette, see videoSetPalette()
+        basepalWFullBrightInfo[i*4] = (uint8_t)britable[curbrightness][basepaltable[basepalnum][i*3]];
+        basepalWFullBrightInfo[i*4+1] = (uint8_t)britable[curbrightness][basepaltable[basepalnum][i*3+1]];
+        basepalWFullBrightInfo[i*4+2] = (uint8_t)britable[curbrightness][basepaltable[basepalnum][i*3+2]];
         basepalWFullBrightInfo[i*4+3] = 0-!!bitmap_test(PaletteIndexFullbright, i);
     }
 
@@ -2457,7 +2458,7 @@ coltype *gloadtruecolortile_mdloadskin_shared(char *fn, int32_t picfillen, vec2_
         }
     }
 
-    char* cptr = britable[gammabrightness ? 0 : curbrightness];
+    char* cptr = britable[curbrightness];
 
     for (bssize_t y = 0, j = 0; y < tsiz->y; ++y, j += siz->x)
     {
@@ -9793,6 +9794,15 @@ static int32_t gen_font_glyph_tex(void)
 
 int32_t polymost_printtext256(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol, const char *name, char fontsize)
 {
+    return polymost_printtext256_scaled(xpos, ypos, col, backcol, name, fontsize, 1);
+}
+
+// Same as polymost_printtext256(), with every glyph pixel drawn scale x scale pixels big.
+int32_t polymost_printtext256_scaled(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol, const char *name, char fontsize, int32_t scale)
+{
+    if (scale < 1)
+        scale = 1;
+
     int const arbackcol = (unsigned)backcol < 256 ? backcol : 0;
 
     buildgl_outputDebugMessage(3, "polymost_printtext256(xpos:%d, ypos:%d, col:%hd, backcol:%hd, name:%p, fontsize:%hhu)",
@@ -9838,9 +9848,9 @@ int32_t polymost_printtext256(int32_t xpos, int32_t ypos, int16_t col, int16_t b
         glBegin(GL_QUADS);
 
         glVertex2i(xpos,ypos);
-        glVertex2i(xpos,ypos+(fontsize?6:8));
-        glVertex2i(xpos+(c<<(3-fontsize)), ypos+(fontsize ? 6 : 8));
-        glVertex2i(xpos+(c<<(3-fontsize)), ypos);
+        glVertex2i(xpos,ypos+(fontsize?6:8)*scale);
+        glVertex2i(xpos+(c<<(3-fontsize))*scale, ypos+(fontsize ? 6 : 8)*scale);
+        glVertex2i(xpos+(c<<(3-fontsize))*scale, ypos);
 
         glEnd();
     }
@@ -9891,15 +9901,15 @@ int32_t polymost_printtext256(int32_t xpos, int32_t ypos, int16_t col, int16_t b
         glVertex2i(xpos, ypos);
 
         glTexCoord2f(t.x + tc.x, t.y);
-        glVertex2i(xpos + (8 >> fontsize), ypos);
+        glVertex2i(xpos + (8 >> fontsize)*scale, ypos);
 
         glTexCoord2f(t.x + tc.x, t.y + tc.y);
-        glVertex2i(xpos + (8 >> fontsize), ypos + (fontsize ? 6 : 8));
+        glVertex2i(xpos + (8 >> fontsize)*scale, ypos + (fontsize ? 6 : 8)*scale);
 
         glTexCoord2f(t.x, t.y + tc.y);
-        glVertex2i(xpos, ypos + (fontsize ? 6 : 8));
+        glVertex2i(xpos, ypos + (fontsize ? 6 : 8)*scale);
 
-        xpos += (8>>fontsize);
+        xpos += (8>>fontsize)*scale;
     }
 
     glEnd();

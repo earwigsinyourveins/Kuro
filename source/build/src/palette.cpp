@@ -687,9 +687,11 @@ void videoSetPalette(char dabrightness, uint8_t dapalid, uint8_t flags)
     }
 
     videoSetGamma();
-    // The classic renderer applies brightness through its software palette. A
-    // supported OS gamma ramp does not replace Shadow Warrior's own brightness slider.
-    j = (videoGetRenderMode() == REND_CLASSIC || !gammabrightness) ? curbrightness : 0;
+    // Brightness is always applied through the palette (and, in the OpenGL renderers, through
+    // the palette texture and the textures converted from it), whatever the renderer is. Neither
+    // an OS gamma ramp nor the GL colour correction shader is driven by Shadow Warrior's own
+    // brightness slider, so relying on them left the slider without any effect in OpenGL.
+    j = curbrightness;
 
     for (i=0; i<256; i++)
     {
@@ -725,13 +727,14 @@ void videoSetPalette(char dabrightness, uint8_t dapalid, uint8_t flags)
 #ifdef USE_OPENGL
     if (videoGetRenderMode() >= REND_POLYMOST)
     {
+        // The indexed (palette texture) path gets the brightness adjusted base palette.
+        if (paldidchange || palsumdidchange)
+            uploadbasepalette(curbasepal);
+
         // Only reset the textures if the corresponding preserve flags are clear and
         // either (a) the new palette is different to the last, or (b) the brightness
-        // changed and we couldn't set it using hardware gamma.
-
-        // XXX: no-HW-gamma OpenGL platforms will exhibit bad performance with
-        // simultaneous basepal and tint changes?
-        const int32_t doinvalidate = (paldidchange || (palsumdidchange && !gammabrightness));
+        // changed (it is baked into the non-indexed textures).
+        const int32_t doinvalidate = (paldidchange || palsumdidchange);
 
         if (!(flags&2) && doinvalidate)
             gltexinvalidatetype(INVALIDATE_ALL_NON_INDEXED);
@@ -753,14 +756,9 @@ void videoSetPalette(char dabrightness, uint8_t dapalid, uint8_t flags)
 
 palette_t paletteGetColor(int32_t col)
 {
-    if (!gammabrightness || videoGetRenderMode() == REND_CLASSIC)
-    {
-        palette_t const p = { britable[curbrightness][curpalette[col].r], britable[curbrightness][curpalette[col].g],
-                              britable[curbrightness][curpalette[col].b], 0 };
-        return p;
-    }
-
-    return curpalette[col];
+    palette_t const p = { britable[curbrightness][curpalette[col].r], britable[curbrightness][curpalette[col].g],
+                          britable[curbrightness][curpalette[col].b], 0 };
+    return p;
 }
 
 static void paletteSetFade(uint8_t offset)

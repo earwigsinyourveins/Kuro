@@ -14937,6 +14937,84 @@ void printext256(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol, const
 }
 
 
+//
+// printext256_scaled
+//
+// printext256() with every pixel of the font drawn scale x scale pixels big. Purely a
+// drawing helper: it touches nothing but the frame buffer / GL output.
+//
+void printext256_scaled(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol, const char *name, char fontsize, int32_t scale)
+{
+    if (scale <= 1)
+    {
+        printext256(xpos, ypos, col, backcol, name, fontsize);
+        return;
+    }
+
+#ifdef USE_OPENGL
+#ifdef POLYMER
+    if (videoGetRenderMode() == REND_POLYMER)
+    {
+        if (!polymer_printtext256_scaled(xpos, ypos, col, backcol, name, fontsize, scale)) return;
+    }
+    else
+#endif
+        if (!polymost_printtext256_scaled(xpos, ypos, col, backcol, name, fontsize, scale)) return;
+#endif
+
+    char const *const fontptr = fontsize ? smalltextfont : textfont;
+    int const charxsiz = fontsize ? 4 : 8;
+    int const charysiz = 8;
+    int32_t stx = xpos;
+
+    videoBeginDrawing();
+    for (int i = 0; name[i]; i++)
+    {
+        if (name[i] == '^' && isdigit(name[i+1]))
+        {
+            char smallbuf[8];
+            int bi = 0;
+            while (isdigit(name[i+1]) && bi < 3)
+                smallbuf[bi++] = name[++i];
+            smallbuf[bi] = 0;
+            if (col) col = Batol(smallbuf);
+            continue;
+        }
+
+        if (stx + charxsiz*scale > xdim)
+            break;
+
+        char const *const letptr = &fontptr[name[i] << 3];
+
+        for (int y = 0; y < charysiz; y++)
+        {
+            for (int x = 0; x < charxsiz; x++)
+            {
+                int const lit = (letptr[y] & pow2char[7 - fontsize - x]) != 0;
+                if (!lit && backcol < 0)
+                    continue;
+
+                for (int sy = 0; sy < scale; sy++)
+                {
+                    int const py = ypos + y*scale + sy;
+                    if ((unsigned)py >= (unsigned)ydim)
+                        continue;
+                    char *ptr = (char *)(ylookup[py] + frameplace);
+                    for (int sx = 0; sx < scale; sx++)
+                    {
+                        int const px = stx - fontsize*scale + x*scale + sx;
+                        if ((unsigned)px < (unsigned)xdim)
+                            ptr[px] = (uint8_t)(lit ? col : backcol);
+                    }
+                }
+            }
+        }
+        stx += charxsiz*scale;
+    }
+    videoEndDrawing();
+}
+
+
 #ifdef POLYMER
 static void PolymerProcessModels(void)
 {

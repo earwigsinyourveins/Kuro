@@ -1080,6 +1080,14 @@ int32_t polymer_printtext256(int32_t xpos, int32_t ypos, int16_t col, int16_t ba
     return returnVal;
 }
 
+int32_t polymer_printtext256_scaled(int32_t xpos, int32_t ypos, int16_t col, int16_t backcol, const char *name, char fontsize, int32_t scale)
+{
+    buildgl_setEnabled(GL_TEXTURE_2D);
+    int32_t returnVal = polymost_printtext256_scaled(xpos, ypos, col, backcol, name, fontsize, scale);
+    buildgl_setDisabled(GL_TEXTURE_2D);
+    return returnVal;
+}
+
 void polymer_fillpolygon(int32_t npoints)
 {
     //POGOTODO: Polymer should implement this so it's no longer coupled with Polymost & reliant on the fixed-function pipeline

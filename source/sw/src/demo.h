@@ -49,7 +49,7 @@ extern SWBOOL DemoMDRActive;      // MDR rules are in force for the current leve
                                   // (negotiated for a live match, or read from the file)
 extern SWBOOL DemoExtendedFormat; // the demo being played back has the extended header
 
-// Gameplay features of the MDR mode (-wpn, -trix, -nosticky, -noheart, -newctf, -aim2, ...). Each one changes the
+// Gameplay features of the MDR mode (-wpn, -trix, -nosticky, -noheart, -newctf, -aim2, -noexit, ...). Each one changes the
 // simulation, so every player has to ask for it, it only takes effect together
 // with -mdr, and the demo header records it so that playback applies it as well.
 // Feature bit n is bit (16 + n) of the demo header flags and of the offer in the
@@ -60,7 +60,8 @@ extern SWBOOL DemoExtendedFormat; // the demo being played back has the extended
 #define MDR_FEATURE_NO_HEART      (1u << 3)  // -noheart:  no Ripper Heart pickups on the map
 #define MDR_FEATURE_NEW_CTF       (1u << 4)  // -newctf: traditional Capture the Flag rules (see MdrNewCtfActive())
 #define MDR_FEATURE_AIM_HITSCAN   (1u << 5)  // -aim2: autoaim only helps hitscan weapons, never projectiles
-#define MDR_FEATURE_ALL (MDR_FEATURE_WEAPONS_STAY | MDR_FEATURE_BUNNY_ROCKETS | MDR_FEATURE_NO_STICKY | MDR_FEATURE_NO_HEART | MDR_FEATURE_NEW_CTF | MDR_FEATURE_AIM_HITSCAN)
+#define MDR_FEATURE_NO_EXIT       (1u << 6)  // -noexit: level exits (exit switches and exit sectors) do nothing
+#define MDR_FEATURE_ALL (MDR_FEATURE_NO_EXIT | MDR_FEATURE_WEAPONS_STAY | MDR_FEATURE_BUNNY_ROCKETS | MDR_FEATURE_NO_STICKY | MDR_FEATURE_NO_HEART | MDR_FEATURE_NEW_CTF | MDR_FEATURE_AIM_HITSCAN)
 extern uint32_t DemoMDRRequestedFeatures;    // asked for on the command line (ignored without -mdr)
 extern uint32_t DemoMDRFeatures;             // in force for the current level (0 unless DemoMDRActive)
 static inline SWBOOL MDRFeature(uint32_t feature) { return (DemoMDRFeatures & feature) != 0; }

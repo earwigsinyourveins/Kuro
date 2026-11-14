@@ -27,6 +27,8 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 //#define MAIN
 //#define QUIET
 #include "build.h"
+#include "baselayer.h"
+#include "renderlayer.h"
 #include "cache1d.h"
 
 #include "keys.h"
@@ -281,7 +283,7 @@ static_assert(MAX_SW_PLAYERS_REG == 8, "the extended demo header stores eight pl
 
 // What this player offers the others in the version packet: -mdr and the gameplay
 // features asked for with it. Nothing at all unless the match would be auto-recorded
-// and -mdr was given, so -wpn/-trix/-nosticky/-noheart/-newctf/-aim2 without -mdr are ignored.
+// and -mdr was given, so -wpn/-trix/-nosticky/-noheart/-newctf/-aim2/-noexit without -mdr are ignored.
 int DemoMDRVersionBits(SWBOOL offered)
 {
     if (!offered)
@@ -294,13 +296,14 @@ int DemoMDRVersionBits(SWBOOL offered)
 static void
 DemoMDRPrintFeatures(uint32_t features)
 {
-    OSD_Printf("MDR features: weapons stay (-wpn) %s, bunny rockets (-trix) %s, no sticky bombs (-nosticky) %s, no ripper hearts (-noheart) %s, new CTF (-newctf) %s, hitscan-only autoaim (-aim2) %s.\n",
+    OSD_Printf("MDR features: weapons stay (-wpn) %s, bunny rockets (-trix) %s, no sticky bombs (-nosticky) %s, no ripper hearts (-noheart) %s, new CTF (-newctf) %s, hitscan-only autoaim (-aim2) %s, no level exits (-noexit) %s.\n",
                (features & MDR_FEATURE_WEAPONS_STAY) ? "ON" : "off",
                (features & MDR_FEATURE_BUNNY_ROCKETS) ? "ON" : "off",
                (features & MDR_FEATURE_NO_STICKY) ? "ON" : "off",
                (features & MDR_FEATURE_NO_HEART) ? "ON" : "off",
                (features & MDR_FEATURE_NEW_CTF) ? "ON" : "off",
-               (features & MDR_FEATURE_AIM_HITSCAN) ? "ON" : "off");
+               (features & MDR_FEATURE_AIM_HITSCAN) ? "ON" : "off",
+               (features & MDR_FEATURE_NO_EXIT) ? "ON" : "off");
 }
 
 // Decide whether the MDR rules apply to the level that is starting, and which of
@@ -377,7 +380,7 @@ void DemoMDRResolve(SWBOOL offered)
     else if (DemoMDRRequestedFeatures && !DemoMDR && !ignoredNoticeShown)
     {
         ignoredNoticeShown = TRUE;
-        OSD_Printf("-wpn, -trix, -nosticky, -noheart, -newctf and -aim2 only work together with -mdr; ignored.\n");
+        OSD_Printf("-wpn, -trix, -nosticky, -noheart, -newctf, -aim2 and -noexit only work together with -mdr; ignored.\n");
     }
 }
 
@@ -2925,7 +2928,13 @@ DemoPlayBack(void)
             break;
         }
 
-		drawscreen(Player + screenpeek);
+		// r_maxfps: frame limiter, same as in RunLevel(). The demo's tics are consumed above
+		// from the recorded inputs and the timer, so whether a frame is drawn on this pass
+		// has no influence on the simulation.
+		if (engineFPSLimit())
+			drawscreen(Player + screenpeek);
+		else if (engineFPSLimitNanosLeft() > 1500000)
+			idle(1);    // plenty of time left before the next frame: let the CPU rest
 		
 		//PODA:  IF SCREEN CHANGED, DO A REFRESH.
 

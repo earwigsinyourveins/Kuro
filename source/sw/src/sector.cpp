@@ -1900,6 +1900,10 @@ OperateSprite(short SpriteNum, short player_is_operating)
         extern short Level;
         extern SWBOOL ExitLevel, FinishedLevel;
 
+        // -noexit (MDR): level exit switches do nothing
+        if (MDRFeature(MDR_FEATURE_NO_EXIT))
+            return FALSE;
+
         AnimateSwitch(sp, -1);
 
         PlaySound(DIGI_BIGSWITCH, &sp->x, &sp->y, &sp->z, v3df_none);
@@ -2119,6 +2123,10 @@ OperateTripTrigger(PLAYERp pp)
     {
         extern short Level;
         extern SWBOOL ExitLevel, FinishedLevel;
+
+        // -noexit (MDR): level exit sectors do nothing
+        if (MDRFeature(MDR_FEATURE_NO_EXIT))
+            break;
 
         if (sectp->hitag)
             Level = sectp->hitag;

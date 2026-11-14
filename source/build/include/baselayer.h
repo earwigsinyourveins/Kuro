@@ -364,6 +364,7 @@ static inline uint64_t calcFrameDelay(int maxFPS)
     return tabledivide64(timerGetNanoTickRate(), maxFPS);
 }
 extern int engineFPSLimit(bool const throttle = false);
+extern uint64_t engineFPSLimitNanosLeft(void);
 #ifdef __cplusplus
 }
 #endif

@@ -1402,27 +1402,87 @@ CircleCamera(int *nx, int *ny, int *nz, short *vsect, int *nq16ang, short horiz)
     *nq16ang = fix16_from_int(ang);
 }
 
+// r_showfps: purely visual frame rate counter. It only reads totalclock and draws, never
+// touches the simulation, the RNG or anything that is recorded in demos or sent over the
+// network, so it is available at every skill level and in multiplayer.
+#define FPS_AVERAGEFRAMES 16
+#define FPS_TEXT_SCALE 4        // the text is printext256's small font, four times bigger
+#define FPS_MARGIN 2
+
+extern int32_t r_showfps;
+
+// Samples the frame rate once per drawn frame; the value is the average over the last
+// FPS_AVERAGEFRAMES frames, exactly as the old swloc counter computed it.
+static int FPSSample(void)
+{
+    static int32_t frameval[FPS_AVERAGEFRAMES];
+    static int framecnt = 0;
+    static int fps = 0;
+
+    int32_t const now = (int32_t) totalclock;
+
+    if (now != frameval[framecnt])
+    {
+        fps = ((120 * FPS_AVERAGEFRAMES) / (now - frameval[framecnt])) + f_c;
+        frameval[framecnt] = now;
+    }
+
+    framecnt = ((framecnt + 1) & (FPS_AVERAGEFRAMES - 1));
+
+    return fps;
+}
+
+// Upper right corner of the 3D view, right below the multiplayer scorebar if there is one.
+static void DrawFPSCounter(int fps)
+{
+    char text[32];
+    extern int16_t OrigCommPlayers;
+
+    snprintf(text, sizeof(text), "FPS: %d", fps);
+
+    int const scale = FPS_TEXT_SCALE;
+    int const width = (int)strlen(text) * 4 * scale;    // small font: 4 pixels per character
+    int const margin = FPS_MARGIN * scale;
+
+    int y = windowxy1.y;
+
+    // same rows the scorebar occupies/reserves in SetFragBar()
+    if (numplayers > 1 && gNet.MultiGameType != MULTI_GAME_COOPERATIVE)
+    {
+        int const num_frag_bars = ((OrigCommPlayers - 1) / 4) + 1;
+        int const barbottom = (int)(((tilesiz[FRAG_BAR].y * num_frag_bars) - (2 * (num_frag_bars - 1))) * (ydim / 200.0));
+
+        if (y < barbottom)
+            y = barbottom;
+    }
+
+    int const x = windowxy2.x + 1 - width - margin;
+
+    printext256_scaled(x, y + margin, 1, -1, text, 1, scale);
+}
+
 void PrintLocationInfo(PLAYERp pp)
 {
 #define Y_STEP 7
-#define AVERAGEFRAMES 16
     int x = windowxy1.x+2;
     int y = windowxy1.y+2;
-    static int frameval[AVERAGEFRAMES], framecnt = 0;
-    int i;
+
+    int fps = 0;
+
+    if (r_showfps || LocationInfo)
+        fps = FPSSample();
+
+    if (r_showfps)
+        DrawFPSCounter(fps);
 
     if (LocationInfo)
     {
-
-        i = (int32_t) totalclock;
-        if (i != frameval[framecnt])
+        // the old small counter of the swloc cheat; r_showfps replaces it when it is on
+        if (!r_showfps)
         {
-            sprintf(buffer, "FPS: %d", ((120 * AVERAGEFRAMES) / (i - frameval[framecnt])) + f_c);
+            sprintf(buffer, "FPS: %d", fps);
             printext256(x, y, 1, -1, buffer, 1);
-            frameval[framecnt] = i;
         }
-
-        framecnt = ((framecnt + 1) & (AVERAGEFRAMES - 1));
 
         if (LocationInfo > 1)
         {

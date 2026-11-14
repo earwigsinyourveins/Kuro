@@ -68,7 +68,7 @@ uint32_t gloadtex_indexed(const int32_t *picbuf, int32_t xsiz, int32_t ysiz)
 
 uint32_t gloadtex(const int32_t *picbuf, int32_t xsiz, int32_t ysiz, int32_t is8bit, int32_t dapal)
 {
-    const char *const cptr = &britable[gammabrightness ? 0 : curbrightness][0];
+    const char *const cptr = &britable[curbrightness][0];
 
     // Correct for GL's RGB order; also apply gamma here:
     const coltype *const pic = (const coltype *)picbuf;
