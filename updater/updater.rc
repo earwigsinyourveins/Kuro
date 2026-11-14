@@ -1,0 +1,34 @@
+// Resource script for the updater: icon, manifest and version info.
+#include <winver.h>
+
+1 ICON     "icon.ico"
+1 24       "updater.manifest"   // 24 = RT_MANIFEST
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+ FILEFLAGS      0
+ FILEOS         VOS_NT_WINDOWS32
+ FILETYPE       VFT_APP
+ FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"            // US English, Unicode
+    BEGIN
+      VALUE "CompanyName",      "github.com/earwigsinyourveins"
+      VALUE "FileDescription",  "Kuro Updater"
+      VALUE "FileVersion",      "1.0.0.0"
+      VALUE "InternalName",     "KuroUpdater"
+      VALUE "LegalCopyright",   "¯\_(ツ)_/¯"
+      VALUE "OriginalFilename", "KuroUpdater.exe"
+      VALUE "ProductName",      "Kuro"
+      VALUE "ProductVersion",   "1.0.0.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 0x04B0
+  END
+END
