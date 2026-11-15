@@ -508,6 +508,84 @@ static void UpdateSWPWeaponHud(PLAYERp pp, USERp u)
     }
 }
 
+// Kuro: time limit readout for the minimal and the compact (SWP) HUD. The full HUD already
+// has its own (PlayerUpdateTimeLimit()). Purely a read of gNet.TimeLimitClock, which the
+// simulation counts down; nothing here touches the simulation.
+static bool GetHudTimeLimitText(PLAYERp pp, char *buffer, size_t size)
+{
+    extern int32_t ShowTimeLimitEnabled;
+
+    if (!ShowTimeLimitEnabled)
+        return false;
+    if (pp - Player != screenpeek)
+        return false;
+    if (gNet.MultiGameType != MULTI_GAME_COMMBAT || !gNet.TimeLimit)
+        return false;
+
+    int seconds = gNet.TimeLimitClock / 120;
+    if (seconds < 0)
+        seconds = 0;
+    snprintf(buffer, size, "%02d:%02d", seconds / 60, seconds % 60);
+    return true;
+}
+
+// Same fragment font as the rest of the HUD text (tiles 2930 onward, 4 pixels per glyph).
+static int HudLimitTextWidth(const char *text)
+{
+    return (int)strlen(text) * 4;
+}
+
+static void DrawHudLimitText(int x, int y, const char *text, int alignFlags)
+{
+    const int firstFragmentTile = 2930; // '!' is the first fragment-font glyph.
+
+    for (const char *ptr = text; *ptr; ++ptr, x += 4)
+    {
+        if (*ptr < '!' || *ptr > '}')
+            continue;
+
+        rotatesprite(long(x) << 16, long(y) << 16, (1 << 16), 0,
+                     short(firstFragmentTile + (*ptr - '!')), 0, 0,
+                     ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER | alignFlags,
+                     0, 0, xdim - 1, ydim - 1);
+    }
+}
+
+// Minimal HUD: a box like the health box, mirrored to the bottom right corner.
+static void DrawMiniBarTimeLimit(PLAYERp pp)
+{
+    char text[16];
+    if (!GetHudTimeLimitText(pp, text, sizeof(text)))
+        return;
+
+    const int boxPic = 2437;    // MINI_BAR_HEALTH_BOX_PIC
+    const int boxX = 320 - 4 - tilesiz[boxPic].x;   // health box is 4 pixels from the left edge
+    const int boxY = 200 - 26;                      // same row as the health box
+
+    rotatesprite(long(boxX) << 16, long(boxY) << 16, (1 << 16), 0,
+                 boxPic, 0, 0,
+                 ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER | RS_ALIGN_R,
+                 0, 0, xdim - 1, ydim - 1);
+
+    DrawHudLimitText(boxX + (tilesiz[boxPic].x - HudLimitTextWidth(text)) / 2,
+                     boxY + (tilesiz[boxPic].y - tilesiz[2930].y) / 2,
+                     text, RS_ALIGN_R);
+}
+
+// Compact HUD: centered on the mirror image of the health number's anchor (x 14, y 186).
+static void DrawCompactTimeLimit(PLAYERp pp)
+{
+    char text[16];
+    if (!GetHudTimeLimitText(pp, text, sizeof(text)))
+        return;
+
+    const int digitHeight = tilesiz[3636].y;    // PANEL_FONT_G, the health number's font
+
+    DrawHudLimitText((320 - 14) - HudLimitTextWidth(text) / 2,
+                     186 + (digitHeight - tilesiz[2930].y) / 2,
+                     text, 0);
+}
+
 void UpdateMiniBar(PLAYERp pp)
 {
     if ((unsigned)pp->PlayerSprite >= MAXSPRITES)
@@ -544,11 +622,14 @@ void UpdateMiniBar(PLAYERp pp)
     if (gs.BorderNum == BORDER_NONE)
     {
         UpdateSWPWeaponHud(pp, u);
+        DrawCompactTimeLimit(pp);
         return;
     }
 
     if (gs.BorderNum != BORDER_MINI_BAR)
         return;
+
+    DrawMiniBarTimeLimit(pp);
 
     /* Optional armor counter: show it immediately above the health counter. */
     if (MinHUDArmorEnabled)

@@ -222,6 +222,9 @@ typedef enum
     btn_kuro_demotime,
     btn_kuro_showheat,
     btn_kuro_shownuke,
+    btn_kuro_showlimit,
+    btn_kuro_showkilllimit,
+    btn_kuro_showtimer,
     btn_max
 } BTNType;
 

@@ -14323,9 +14323,15 @@ WeaponAutoAim(SPRITEp sp, short Missile, short ang, SWBOOL test)
         }
 
         // -aim2 (MDR): autoaim is for hitscan weapons only, projectiles fly where they are pointed.
-        // Exception: the railgun is technically a projectile, but it still gets autoaim.
+        // Exceptions: the railgun is technically a projectile, but it still gets autoaim. So do the
+        // Uzi's tracer pellets, which belong to a hitscan weapon.
         if (MDRFeature(MDR_FEATURE_AIM_HITSCAN) && !(wu && wu->WeaponNum == WPN_RAIL))
-            return -1;
+        {
+            SWBOOL uziTracer = wu && wu->WeaponNum == WPN_UZI && wu->StateStart == s_Tracer;
+
+            if (!uziTracer)
+                return -1;
+        }
     }
 
     if ((hit_sprite = DoPickTarget(sp, ang, test)) != -1)

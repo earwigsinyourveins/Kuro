@@ -66,6 +66,9 @@ extern int g_noSetup;
 
 // Kuro [Kuro] configuration toggle: show current/total demo playback tics.
 extern int32_t DemoTimeEnabled;
+extern int32_t ShowTimeLimitEnabled;   // config: [Kuro] ShowTimeLimit
+extern int32_t ShowKillLimitEnabled;    // config: [Kuro] ShowKillLimit
+extern int32_t ShowTimerEnabled;       // config: [Kuro] ShowTimer
 
 #define SETUPNAMEPARM "SETUPFILE"
 

@@ -1432,17 +1432,11 @@ static int FPSSample(void)
     return fps;
 }
 
-// Upper right corner of the 3D view, right below the multiplayer scorebar if there is one.
-static void DrawFPSCounter(int fps)
+// Top of the upper right corner of the 3D view, right below the multiplayer scorebar if there
+// is one. The FPS counter and the kill limit both hang off it.
+static int TopRightHudBaseY(void)
 {
-    char text[32];
     extern int16_t OrigCommPlayers;
-
-    snprintf(text, sizeof(text), "FPS: %d", fps);
-
-    int const scale = FPS_TEXT_SCALE;
-    int const width = (int)strlen(text) * 4 * scale;    // small font: 4 pixels per character
-    int const margin = FPS_MARGIN * scale;
 
     int y = windowxy1.y;
 
@@ -1456,9 +1450,65 @@ static void DrawFPSCounter(int fps)
             y = barbottom;
     }
 
+    return y;
+}
+
+static void DrawFPSCounter(int fps)
+{
+    char text[32];
+
+    snprintf(text, sizeof(text), "FPS: %d", fps);
+
+    int const scale = FPS_TEXT_SCALE;
+    int const width = (int)strlen(text) * 4 * scale;    // small font: 4 pixels per character
+    int const margin = FPS_MARGIN * scale;
+
     int const x = windowxy2.x + 1 - width - margin;
 
-    printext256_scaled(x, y + margin, 1, -1, text, 1, scale);
+    printext256_scaled(x, TopRightHudBaseY() + margin, 1, -1, text, 1, scale);
+}
+
+// Kill limit of a deathmatch (just the number), right below the spot the FPS counter takes
+// (which is kept free whether or not r_showfps is on, so the kill limit does not jump around).
+// Drawn with the menu item font. Read-only: it only looks at gNet.KillLimit.
+static void DrawKillLimit(void)
+{
+    extern int32_t ShowKillLimitEnabled;
+
+    if (!ShowKillLimitEnabled)
+        return;
+    if (gNet.MultiGameType != MULTI_GAME_COMMBAT || !gNet.KillLimit)
+        return;
+
+    char text[16];
+    snprintf(text, sizeof(text), "%d", (int)gNet.KillLimit);
+
+    // Width of the text in the 320x200 space the menu font is laid out in.
+    int widthV = 0;
+    for (const char *ptr = text; *ptr; ++ptr)
+        widthV += tilesiz[*ptr - '!' + STARTALPHANUM].x;
+
+    // The placement is worked out in screen pixels, like the FPS counter's: right aligned to the
+    // 3D view with the same margin, and below the line the FPS counter occupies.
+    int const scale = FPS_TEXT_SCALE;
+    int const margin = FPS_MARGIN * scale;
+    int const fpsLineHeight = 6 * scale;
+
+    int const rightPx = windowxy2.x + 1 - margin;
+    int const topPx = TopRightHudBaseY() + margin + fpsLineHeight + margin;
+
+    // Screen pixels to the virtual 320x200 coordinates rotatesprite() takes (4:3 area centered).
+    int x = 160 + (int)(((rightPx - xdim / 2) * 200.0) / ydim) - widthV;
+    int const y = (int)((topPx * 200.0) / ydim);
+
+    for (const char *ptr = text; *ptr; ++ptr)
+    {
+        int const pic = *ptr - '!' + STARTALPHANUM;
+
+        rotatesprite(long(x) << 16, long(y) << 16, (1 << 16), 0, short(pic), 0, 0,
+                     ROTATE_SPRITE_SCREEN_CLIP | ROTATE_SPRITE_CORNER, 0, 0, xdim - 1, ydim - 1);
+        x += tilesiz[pic].x;
+    }
 }
 
 void PrintLocationInfo(PLAYERp pp)
@@ -1474,6 +1524,8 @@ void PrintLocationInfo(PLAYERp pp)
 
     if (r_showfps)
         DrawFPSCounter(fps);
+
+    DrawKillLimit();
 
     if (LocationInfo)
     {

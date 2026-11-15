@@ -65,7 +65,7 @@ int32_t MapCopyEnabled = 1;
 // folder for demos in which nobody got a kill (or the scores are unknown). Configured
 // in the cfg file's [Kuro] section as ZeroKillDemos. (The key cannot be called
 // 0KillDemos: the config parser only accepts entry names that start with a letter.)
-int32_t ZeroKillDemosEnabled = 1;
+int32_t ZeroKillDemosEnabled = 0;
 
 // Kuro toggle: take a screenshot of the multiplayer scoreboard into the demo's archive
 // folder; configured in the cfg file's [Kuro] section as ScoreShot.
@@ -80,6 +80,16 @@ int32_t DemoTimeEnabled = 1;
 // Kuro compact-HUD toggles: show heat-seeker card and nuke indicators.
 int32_t ShowHeatEnabled = 1;
 int32_t ShowNukeEnabled = 1;
+
+// Kuro toggles: show the time limit on the minimal and the compact HUD (the full HUD
+// always has it), and show an elapsed-time timer (MM:SS) on screen. [Kuro] ShowTimeLimit
+// and ShowTimer in the cfg file.
+int32_t ShowTimeLimitEnabled = 1;
+
+// Kuro toggle: show the kill limit (if the match has one) in the upper right corner of the
+// screen, below where the r_showfps counter goes. [Kuro] ShowKillLimit in the cfg file.
+int32_t ShowKillLimitEnabled = 1;
+int32_t ShowTimerEnabled = 1;
 
 //
 // Comm variables
@@ -710,14 +720,17 @@ int32_t CONFIG_ReadSetup(void)
 {
     int32_t dummy;
 
-    // Missing settings default to enabled.
+    // Missing settings default to enabled, except ZeroKillDemos (off by default).
     MapCopyEnabled = 1;
-    ZeroKillDemosEnabled = 1;
+    ZeroKillDemosEnabled = 0;
     ScoreShotEnabled = 1;
     MinHUDArmorEnabled = 1;
     DemoTimeEnabled = 1;
     ShowHeatEnabled = 1;
     ShowNukeEnabled = 1;
+    ShowTimeLimitEnabled = 1;
+    ShowKillLimitEnabled = 1;
+    ShowTimerEnabled = 1;
     char waveformtrackname[MAXWAVEFORMTRACKLENGTH] = {0};
 
     CONTROL_ClearAssignments();
@@ -748,6 +761,15 @@ int32_t CONFIG_ReadSetup(void)
 
     SCRIPT_GetNumber(scripthandle, "Kuro", "ShowNuke", &ShowNukeEnabled);
     ShowNukeEnabled = ShowNukeEnabled ? 1 : 0;
+
+    SCRIPT_GetNumber(scripthandle, "Kuro", "ShowTimeLimit", &ShowTimeLimitEnabled);
+    ShowTimeLimitEnabled = ShowTimeLimitEnabled ? 1 : 0;
+
+    SCRIPT_GetNumber(scripthandle, "Kuro", "ShowKillLimit", &ShowKillLimitEnabled);
+    ShowKillLimitEnabled = ShowKillLimitEnabled ? 1 : 0;
+
+    SCRIPT_GetNumber(scripthandle, "Kuro", "ShowTimer", &ShowTimerEnabled);
+    ShowTimerEnabled = ShowTimerEnabled ? 1 : 0;
 
     SCRIPT_GetNumber(scripthandle, "Screen Setup", "ScreenMode",&ud_setup.ScreenMode);
     SCRIPT_GetNumber(scripthandle, "Screen Setup", "ScreenWidth",&ud_setup.ScreenWidth);
@@ -854,6 +876,9 @@ void CONFIG_WriteSetup(void)
     SCRIPT_PutNumber(scripthandle, "Kuro", "DemoTime", DemoTimeEnabled ? 1 : 0, FALSE, FALSE);
     SCRIPT_PutNumber(scripthandle, "Kuro", "ShowHeat", ShowHeatEnabled ? 1 : 0, FALSE, FALSE);
     SCRIPT_PutNumber(scripthandle, "Kuro", "ShowNuke", ShowNukeEnabled ? 1 : 0, FALSE, FALSE);
+    SCRIPT_PutNumber(scripthandle, "Kuro", "ShowTimeLimit", ShowTimeLimitEnabled ? 1 : 0, FALSE, FALSE);
+    SCRIPT_PutNumber(scripthandle, "Kuro", "ShowKillLimit", ShowKillLimitEnabled ? 1 : 0, FALSE, FALSE);
+    SCRIPT_PutNumber(scripthandle, "Kuro", "ShowTimer", ShowTimerEnabled ? 1 : 0, FALSE, FALSE);
 
     SCRIPT_PutNumber(scripthandle, "Screen Setup", "ScreenWidth", ud_setup.ScreenWidth,FALSE,FALSE);
     SCRIPT_PutNumber(scripthandle, "Screen Setup", "ScreenHeight",ud_setup.ScreenHeight,FALSE,FALSE);

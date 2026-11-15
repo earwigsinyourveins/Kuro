@@ -316,6 +316,27 @@ void operatefta(void)
 	else
 		snprintf(buffy2, sizeof(buffy2), "T?");
 
+	// The minimal HUD's boxes are pinned to the left screen edge (RS_ALIGN_L). The text drawn here
+	// next to them (demo name, tic counter, timer) has to be as well, or it drifts to the right of
+	// them in widescreen, and differs between demo playback and a live game. The compact HUD is
+	// laid out in the centered 4:3 area and keeps the plain placement.
+	short const miniTextBits = (short)(2 + 8 + 16 + (gs.BorderNum == BORDER_MINI_BAR ? RS_ALIGN_L : 0));
+
+	// Kuro timer: elapsed time on the level as MM:SS. totalsynctics counts 120 per second, in
+	// the simulation and in demo playback alike, and is only read here. It sits where the demo
+	// tic counter is; during demo playback it goes right of the tic counter instead.
+	if (ShowTimerEnabled)
+	{
+		char timerText[24];
+		int const timerSeconds = max(totalsynctics, 0) / 120;
+		snprintf(timerText, sizeof(timerText), "%02d:%02d", timerSeconds / 60, timerSeconds % 60);
+
+		if (gs.BorderNum <= 1)
+			minigametextextra(DemoPlaying ? 106 : 34, 165, timerText, 16 + Player[screenpeek].TeamColor, miniTextBits);
+		else
+			minigametextextra(DemoPlaying ? 77 : 5, 145, timerText, 16 + Player[screenpeek].TeamColor, 2 + 8 + 16);
+	}
+
 	if (gs.BorderNum <= 1)
 	{
 
@@ -323,14 +344,14 @@ void operatefta(void)
 		{
 
 			// Shift the minimal-HUD demo name right to clear the optional armor counter.
-			minigametextextra(34, 159, Player[screenpeek].PlayerName, 16 + Player[screenpeek].TeamColor, 2 + 8 + 16);
-			minigametextextra(34, 165, buffy1, 16 + Player[screenpeek].TeamColor, 2 + 8 + 16);
-			minigametextextra(70, 165, buffy2, 16 + Player[screenpeek].TeamColor, 2 + 8 + 16);
+			minigametextextra(34, 159, Player[screenpeek].PlayerName, 16 + Player[screenpeek].TeamColor, miniTextBits);
+			minigametextextra(34, 165, buffy1, 16 + Player[screenpeek].TeamColor, miniTextBits);
+			minigametextextra(70, 165, buffy2, 16 + Player[screenpeek].TeamColor, miniTextBits);
 
 		}
 
 		else if (DemoPlaying)
-			minigametextextra(34, 165, Player[screenpeek].PlayerName, 16 + Player[screenpeek].TeamColor, 2 + 8 + 16);
+			minigametextextra(34, 165, Player[screenpeek].PlayerName, 16 + Player[screenpeek].TeamColor, miniTextBits);
 	}
 	
 	else

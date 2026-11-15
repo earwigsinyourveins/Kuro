@@ -123,7 +123,7 @@ short buttonsettings[btn_max];
 // The Kuro menu edits these (config.cpp); they are read where they are used, so a change
 // takes effect at once, and CONFIG_WriteSetup() saves them with the rest of the settings.
 extern int32_t MapCopyEnabled, ZeroKillDemosEnabled, ScoreShotEnabled, MinHUDArmorEnabled,
-               DemoTimeEnabled, ShowHeatEnabled, ShowNukeEnabled;
+               DemoTimeEnabled, ShowHeatEnabled, ShowNukeEnabled, ShowTimeLimitEnabled, ShowKillLimitEnabled, ShowTimerEnabled;
 
 // EXTERNS ////////////////////////////
 #define XDIM    320
@@ -224,6 +224,9 @@ MenuItem kuro_i[] =
     {DefButton(btn_kuro_demotime, 0, "Demo Time"),          OPT_XS, OPT_LINE(4), 1, m_defshade, 0, NULL, NULL, NULL},
     {DefButton(btn_kuro_showheat, 0, "Show Heat"),          OPT_XS, OPT_LINE(5), 1, m_defshade, 0, NULL, NULL, NULL},
     {DefButton(btn_kuro_shownuke, 0, "Show Nuke"),          OPT_XS, OPT_LINE(6), 1, m_defshade, 0, NULL, NULL, NULL},
+    {DefButton(btn_kuro_showlimit, 0, "Show Time Limit"),   OPT_XS, OPT_LINE(7), 1, m_defshade, 0, NULL, NULL, NULL},
+    {DefButton(btn_kuro_showkilllimit, 0, "Show Kill Limit"), OPT_XS, OPT_LINE(8), 1, m_defshade, 0, NULL, NULL, NULL},
+    {DefButton(btn_kuro_showtimer, 0, "Show Timer"),        OPT_XS, OPT_LINE(9), 1, m_defshade, 0, NULL, NULL, NULL},
     {DefNone}
 };
 
@@ -2252,6 +2255,9 @@ MNU_InitMenus(void)
     buttonsettings[btn_kuro_demotime] = DemoTimeEnabled;
     buttonsettings[btn_kuro_showheat] = ShowHeatEnabled;
     buttonsettings[btn_kuro_shownuke] = ShowNukeEnabled;
+    buttonsettings[btn_kuro_showlimit] = ShowTimeLimitEnabled;
+    buttonsettings[btn_kuro_showkilllimit] = ShowKillLimitEnabled;
+    buttonsettings[btn_kuro_showtimer] = ShowTimerEnabled;
 
     slidersettings[sldr_mousescalex] = MouseAnalogScale[0]>>13;
     slidersettings[sldr_mousescaley] = MouseAnalogScale[1]>>13;
@@ -3411,6 +3417,15 @@ MNU_DoButton(MenuItem_p item, SWBOOL draw)
             break;
         case btn_kuro_shownuke:
             ShowNukeEnabled = state = buttonsettings[item->button] ? 1 : 0;
+            break;
+        case btn_kuro_showlimit:
+            ShowTimeLimitEnabled = state = buttonsettings[item->button] ? 1 : 0;
+            break;
+        case btn_kuro_showkilllimit:
+            ShowKillLimitEnabled = state = buttonsettings[item->button] ? 1 : 0;
+            break;
+        case btn_kuro_showtimer:
+            ShowTimerEnabled = state = buttonsettings[item->button] ? 1 : 0;
             break;
         case btn_markers:
             gs.NetSpawnMarkers = state = buttonsettings[item->button];
