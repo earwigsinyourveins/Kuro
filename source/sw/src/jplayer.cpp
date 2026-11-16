@@ -322,14 +322,20 @@ void operatefta(void)
 	// laid out in the centered 4:3 area and keeps the plain placement.
 	short const miniTextBits = (short)(2 + 8 + 16 + (gs.BorderNum == BORDER_MINI_BAR ? RS_ALIGN_L : 0));
 
-	// Kuro timer: elapsed time on the level as MM:SS. totalsynctics counts 120 per second, in
-	// the simulation and in demo playback alike, and is only read here. It sits where the demo
-	// tic counter is; during demo playback it goes right of the tic counter instead.
+	// Kuro timer: elapsed time on the level as HH:MM:SS. It reads PlayClock, which counts 120 per
+	// second in the simulation and in demo playback alike, and (unlike totalsynctics) only while
+	// the game is not paused: domovethings() returns before advancing it when GamePaused is set.
+	// That covers the pause key, and the menu in single player, which pauses through PauseGame().
+	// PauseGame() does nothing in multiplayer or during demo playback, so there the menu does not
+	// stop the timer. PlayClock is also what the level stats use, and is kept in savegames. It is
+	// only read here. The timer sits where the demo tic counter is; during demo playback it goes
+	// right of the tic counter instead.
 	if (ShowTimerEnabled)
 	{
+		extern int PlayClock;
 		char timerText[24];
-		int const timerSeconds = max(totalsynctics, 0) / 120;
-		snprintf(timerText, sizeof(timerText), "%02d:%02d", timerSeconds / 60, timerSeconds % 60);
+		int const timerSeconds = max(PlayClock, 0) / 120;
+		snprintf(timerText, sizeof(timerText), "%02d:%02d:%02d", timerSeconds / 3600, (timerSeconds / 60) % 60, timerSeconds % 60);
 
 		if (gs.BorderNum <= 1)
 			minigametextextra(DemoPlaying ? 106 : 34, 165, timerText, 16 + Player[screenpeek].TeamColor, miniTextBits);
